@@ -65,7 +65,7 @@ python -m test --cfg configs/soke.yaml --task t2m  #you can set SAVE_PREDICTIONS
 ```
 
 ## Visualizations
-Simple visualizations if meshes can be done by running
+Simple visualizations for meshes can be done by running
 ```
 python -m vis_mesh --cfg=configs/soke.yaml --demo_dataset=csl
 ```
