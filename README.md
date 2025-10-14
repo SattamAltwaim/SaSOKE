@@ -36,7 +36,7 @@ Download t2m evaluators via `sh prepare/download_t2m_evaluators.sh`.
 Down t5 models via `sh prepare/prepare_t5.sh`. Note that this aims to avoid errors caused by the default config.
 
 ### Language Model
-We use mBart-large-cc25, which can be downloaded [here](https://drive.google.com/drive/folders/1GnaHrI0PC4ZRr-GK3FS2GXcQwlrpA5Gi?usp=sharing). Put the chekpoint into `deps/mbart-h2s-csl-phoenix`
+We use mBart-large-cc25, which can be downloaded [here](https://drive.google.com/drive/folders/1GnaHrI0PC4ZRr-GK3FS2GXcQwlrpA5Gi?usp=sharing). Put the files into `deps/mbart-h2s-csl-phoenix`
 
 
 ## Decoupled Tokenizer
