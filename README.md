@@ -1,91 +1,116 @@
-# Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator
-Official implementation for the ICCV 2025 paper, [Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator](https://arxiv.org/pdf/2411.17799).
+# SaSOKE: Saudi Sign Language Production
 
+[![GitHub](https://img.shields.io/badge/GitHub-SaSOKE-blue)](https://github.com/SattamAltwaim/SaSOKE)
+[![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 
-## Introduction
-Sign language is a visual language that encompasses all linguistic features of natural languages and serves as the primary communication method for the deaf and hard-of-hearing communities. Although many studies have successfully adapted pretrained language models (LMs) for sign language translation (sign-to-text), the reverse task—sign language generation (text-to-sign)—remains largely unexplored. In this work, we introduce a multilingual sign language model, Signs as Tokens (SOKE), which can generate 3D sign avatars autoregressively from text inputs using a pretrained LM. To align sign language with the LM, we leverage a decoupled tokenizer that discretizes continuous signs into token sequences representing various body parts. During decoding, unlike existing approaches that flatten all part-wise tokens into a single sequence and predict one token at a time, we propose a multi-head decoding method capable of predicting multiple tokens simultaneously. This approach improves inference efficiency while maintaining effective information fusion across different body parts. To further ease the generation process, we propose a retrieval-enhanced SLG approach, which incorporates external sign dictionaries to provide accurate word-level signs as auxiliary conditions, significantly improving the precision of generated signs. 
+Fine-tuning SOKE for Saudi Sign Language (Isharah) production.
 
+## About
 
+This repository extends [SOKE: Signs as Tokens](https://github.com/2000ZRL/SOKE) by Zuo et al. (ICCV 2025) for Saudi Sign Language generation using the Isharah dataset.
 
-## Environment
-Please run 
-```
-conda create python=3.10 --name soke
-conda activate soke
-pip install -r requirements.txt
-```
+**Project Context:**
+- Senior Project I, University of Jeddah
+- Collaboration with SDAIA-KFUPM Joint Research Center for Artificial Intelligence
+- Focus: Multilingual sign language generation for Saudi Sign Language
 
+## Original SOKE
 
-## Data
-### Continuous Sign Language Datasets
-How2Sign: [raw videos](https://how2sign.github.io/)(Green Screen RGB clips (frontal view)) and [split files](https://drive.google.com/drive/folders/1sPhBwmiWCXLZSHtM3fpotbz3BDgoYmco?usp=sharing).
+SOKE (Signs as Tokens) is a retrieval-enhanced multilingual sign language generator that:
+- Uses VQ-VAE to discretize continuous sign poses into tokens
+- Employs mBART for multilingual text-to-sign generation
+- Supports How2Sign, CSL-Daily, and Phoenix-2014T datasets
 
-CSL-Daily: [raw videos](http://home.ustc.edu.cn/~zhouh156/dataset/csl-daily/) and [split files](https://drive.google.com/drive/folders/17uPm6r5_DQ9CIYZonfwQLpw1XI8LeNEr?usp=drive_link). 
+**Original Paper:** "Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator" Zuo et al., ICCV 2025
 
-Phoenix-2014T: [raw videos](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX-2014-T/) and [split files](https://drive.google.com/drive/folders/1Z2zjOH5wvwT7x_F6IycWAN-nh2wgJOx1?usp=sharing).
+## Our Contribution
 
-SMPL-X Poses can be downloaded from the project [homepage](https://2000zrl.github.io/soke/).
+SaSOKE adapts SOKE for:
+- **Saudi Sign Language (Isharah)** dataset integration
+- **Google Colab** training workflow with CUDA support
+- **GitHub + Google Drive** hybrid storage for version control and data management
+- **Plug-and-play notebooks** for easy setup and training
 
+## Quick Start
 
-## Models
-### Human Models
-Please download human models (mano, smpl, smplh, and smplx) from [here](https://drive.google.com/file/d/1YIXddvvBJPQVRuKON2Xc9EEDXikRTteo/view?usp=sharing) and unzip them into deps/smpl_models. 
+### Prerequisites
+- Google Account with Drive
+- Google Colab (free tier or Pro)
+- Isharah dataset (or How2Sign for testing)
 
-Download t2m evaluators via `sh prepare/download_t2m_evaluators.sh`.
+### Setup (5 minutes)
 
-Down t5 models via `sh prepare/prepare_t5.sh`. Note that this aims to avoid errors caused by the default config.
+1. **Access Notebooks:** Go to [Google Colab](https://colab.research.google.com), File → Open notebook → GitHub, Enter: \`SattamAltwaim/SaSOKE\`
+2. **Run Setup:** Open \`notebooks/1_setup_and_data_prep.ipynb\`, Runtime → Change runtime type → GPU, Run all cells
+3. **Upload Data:** Upload your dataset to Google Drive: \`/MyDrive/SOKE_data/data/Isharah/\`
+4. **Start Training:** Open \`notebooks/3_train_soke.ipynb\`, Run all cells
 
-### Language Model
-We use mBart-large-cc25, which can be downloaded [here](https://drive.google.com/drive/folders/1GnaHrI0PC4ZRr-GK3FS2GXcQwlrpA5Gi?usp=sharing). Put the files into `deps/mbart-h2s-csl-phoenix`
+## Notebooks
 
+- **1_setup_and_data_prep.ipynb**: Downloads dependencies, SMPL models, mBART
+- **2_train_tokenizer.ipynb**: Trains VQ-VAE (optional)
+- **3_train_soke.ipynb**: Fine-tunes mBART on sign language
+- **4_inference.ipynb**: Generates sign predictions from text
 
-## Decoupled Tokenizer
-### Training
-```
-python -m train --cfg configs/deto.yaml --nodebug
-```
+## Data Organization
 
-### Inference
-```
-python -m test --cfg configs/deto.yaml --nodebug
-```
-We also provide the [mean](https://drive.google.com/file/d/1NH-eVtS0nNjMjCwae-A1ii5sxj44C3bo/view?usp=sharing) and the [std](https://drive.google.com/file/d/1FHHWS0GPM2s6S2PB2JHv4ufdEbzezuKW/view?usp=sharing) of the SMPL-X poses. The checkpoint of the tokenizer is available [here](https://drive.google.com/file/d/18HdPeXwz4O6LY4FZMC5BZ9rja4pcUTFk/view?usp=sharing).
+Google Drive structure:
+\`\`\`
+/MyDrive/SOKE_data/
+├── data/Isharah/          # Your dataset
+├── deps/                  # Downloaded by setup
+├── smpl-x/               # Downloaded by setup
+└── checkpoints/          # Training outputs
+\`\`\`
 
+## GPU Requirements
 
-## Autoregressive Multilingual Generator
-### Training
-```
-python -m get_motion_code --cfg configs/soke.yaml --nodebug
-python -m train --cfg configs/soke.yaml --nodebug  #Note that please first update the path of the tokenizer's checkpoint.
-```
+- **Minimum**: Colab Free (T4, 16GB) - batch_size=8, ~72hrs
+- **Recommended**: Colab Pro (V100, 32GB) - batch_size=16, ~36hrs
+- **Optimal**: Colab Pro+ (A100, 40GB) - batch_size=32, ~18hrs
 
-### Inference
-```
-python -m test --cfg configs/soke.yaml --task t2m  #you can set SAVE_PREDICTIONS in the config file to True if you want to save them.
-```
+## Citation
 
-## Visualizations
-Simple visualizations for meshes can be done by running
-```
-python -m vis_mesh --cfg=configs/soke.yaml --demo_dataset=csl
-```
-For colorful visualiations, please refer to the configurations of [BlenderToolbox](https://github.com/HTDerekLiu/BlenderToolbox), and run
-```
-python vis_blender.py
-```
-
-## Acknowledgements
-We sincerely thank the open-sourced codes of these works where our code is based on: [MotionGPT](https://github.com/OpenMotionLab/MotionGPT/), [ProgressiveTransformer](https://github.com/BenSaunders27/ProgressiveTransformersSLP), [WiLoR](https://github.com/rolpotamias/WiLoR), and [OSX](https://github.com/IDEA-Research/OSX/). 
-
-Please contact [r.zuo@imperial.ac.uk](mailto:r.zuo@imperial.ac.uk) for further questions.
-
-
-## Citations
-```
+### Original SOKE
+\`\`\`bibtex
 @inproceedings{zuo2025soke,
-    title={Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator},
-    author={Zuo, Ronglai and Potamias, Rolandos Alexandros and Ververas, Evangelos and Deng, Jiankang and Zafeiriou, Stefanos},
-    booktitle={ICCV},
-    year={2025}
+  title={Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator},
+  author={Zuo, Ronglai and others},
+  booktitle={ICCV},
+  year={2025}
 }
-```
+\`\`\`
+
+### SaSOKE
+\`\`\`bibtex
+@misc{altwaim2025sasoke,
+  title={SaSOKE: Saudi Sign Language Production},
+  author={Altwaim, Sattam and team},
+  year={2025},
+  note={Senior Project, University of Jeddah. SDAIA-KFUPM Joint Research Center}
+}
+\`\`\`
+
+## Acknowledgments
+
+- **Original SOKE**: Zuo et al. for base architecture and pretrained models
+- **SDAIA-KFUPM Joint Research Center**: Research support and collaboration
+- **University of Jeddah**: Senior project supervision
+- **Isharah Dataset**: For Saudi Sign Language data
+
+## Team
+
+University of Jeddah - Senior Project I
+
+Supervised by SDAIA-KFUPM Joint Research Center for Artificial Intelligence
+
+## Resources
+
+- **Original SOKE**: [GitHub](https://github.com/2000ZRL/SOKE) | [Paper](https://arxiv.org/pdf/2411.17799)
+- **SaSOKE**: [GitHub](https://github.com/SattamAltwaim/SaSOKE)
+- **Documentation**: See \`notebooks/README.md\` and docs folder
+
+## License
+
+Builds upon SOKE and follows its original license terms.
