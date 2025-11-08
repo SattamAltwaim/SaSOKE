@@ -110,7 +110,10 @@ class BaseModel(LightningModule):
                     count[n] = count[n] + 1
             for k in scores.keys():
                 scores[k] = scores[k] / max(count[k], 1)
-            print('rank: ', torch.distributed.get_rank(), scores)
+            if torch.distributed.is_initialized():
+                print('rank: ', torch.distributed.get_rank(), scores)
+            else:
+                print('scores: ', scores)
 
         # Log metrics
         dico = self.metrics_log_dict()
@@ -120,7 +123,8 @@ class BaseModel(LightningModule):
         # self.save_npy(self.test_step_outputs)
 
         # save prediction
-        save_dir = os.path.join(self.output_dir, f'{self.hparams.cfg.TEST.SPLIT}_rank_'+str(torch.distributed.get_rank()))
+        rank_suffix = str(torch.distributed.get_rank()) if torch.distributed.is_initialized() else '0'
+        save_dir = os.path.join(self.output_dir, f'{self.hparams.cfg.TEST.SPLIT}_rank_'+rank_suffix)
         os.makedirs(save_dir, exist_ok=True)
         if 'lm' in self.hparams.stage:
             with open(os.path.join(save_dir, 'test_scores.json'), 'w') as f:

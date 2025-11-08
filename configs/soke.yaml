@@ -1,18 +1,18 @@
 NAME: SOKE # Experiment names
-ACCELERATOR: 'gpu' # Devices optioncal: “cpu”, “gpu”, “tpu”, “ipu”, “hpu”, “mps, “auto”
+ACCELERATOR: 'mps' # Devices optioncal: "cpu", "gpu", "tpu", "ipu", "hpu", "mps, "auto"
 NUM_NODES: 1 # Number of GPU nodes for distributed training
-DEVICE: [0,1,2,3,4,5] # Index of gpus eg. [0] or [0,1,2,3]
+DEVICE: [0] # Index of gpus eg. [0] or [0,1,2,3]
 
 TRAIN:
   #---------------------------------
   STAGE: lm_pretrain # stage "vae" , "lm_pretrain", "lm_instruct"
   #---------------------------------
-  NUM_WORKERS: 16 # Number of workers
+  NUM_WORKERS: 4 # Number of workers
   BATCH_SIZE: 32 # Size of batches
   END_EPOCH: 150 # End epoch
   RESUME: '' # Resume training from this path
   PRETRAINED: '' # Preatrained model path
-  PRETRAINED_VAE: 'experiments/mgpt/vae/checkpoints/tokenizer.ckpt' # Vae model path
+  PRETRAINED_VAE: '/Volumes/The Storage!/SOKE/checkpoints/vae/tokenizer.ckpt' # Vae model path
 
   OPTIM:
     target: AdamW
@@ -29,25 +29,25 @@ TRAIN:
 
 # Evaluating Configuration
 EVAL:
-  BATCH_SIZE: 8 # Evaluating Batch size
+  BATCH_SIZE: 1 # Evaluating Batch size
   SPLIT: val
 
 TEST:
   CHECKPOINTS: null
   SPLIT: test
-  BATCH_SIZE: 8 # training Batch size
+  BATCH_SIZE: 1 # training Batch size
   REPLICATION_TIMES: 1 # Number of times to replicate the test
-  SAVE_PREDICTIONS: False
+  SAVE_PREDICTIONS: True
 
 DATASET:
   target: mGPT.data.H2S.H2SDataModule
   H2S:
-    DATASET_NAME: how2sign_csl_phoenix
-    ROOT: ../data/How2Sign
-    CSL_ROOT: ../data/CSL-Daily
-    PHOENIX_ROOT: ../data/Phoenix_2014T
-    MEAN_PATH: ../data/CSL-Daily/mean.pt
-    STD_PATH: ../data/CSL-Daily/std.pt
+    DATASET_NAME: how2sign
+    ROOT: /Volumes/The Storage!/SOKE/data/How2Sign
+    CSL_ROOT: /Volumes/The Storage!/SOKE/data/CSL-Daily
+    PHOENIX_ROOT: /Volumes/The Storage!/SOKE/data/Phoenix_2014T
+    MEAN_PATH: /Volumes/The Storage!/SOKE/smpl-x/mean.pt
+    STD_PATH: /Volumes/The Storage!/SOKE/smpl-x/std.pt
     MAX_MOTION_LEN: 400
     MIN_MOTION_LEN: 40
     MAX_TEXT_LEN: 40

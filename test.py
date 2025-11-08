@@ -84,6 +84,7 @@ def main():
         enable_progress_bar=True,
         logger=None,
         callbacks=callbacks,
+        limit_test_batches=10,  # Only test on 10 batches for quick verification
     )
 
     # Strict load vae model
@@ -94,8 +95,14 @@ def main():
     if not cfg.TEST.CHECKPOINTS:
         ckpt_folder = os.path.join(cfg.FOLDER_EXP.replace('results', 'experiments'), 'checkpoints')
         cfg.TEST.CHECKPOINTS = os.path.join(ckpt_folder, 'last.ckpt')
-    load_pretrained(cfg, model, logger, phase="test")
-    cfg.TIME = cfg.TEST.CHECKPOINTS.split('/')[-1]
+    
+    # Load checkpoint if it exists, otherwise use the pretrained mBART as-is
+    if os.path.exists(cfg.TEST.CHECKPOINTS):
+        load_pretrained(cfg, model, logger, phase="test")
+        cfg.TIME = cfg.TEST.CHECKPOINTS.split('/')[-1]
+    else:
+        logger.info(f"Checkpoint {cfg.TEST.CHECKPOINTS} not found. Using pretrained mBART model directly.")
+        cfg.TIME = "pretrained"
 
     # Calculate metrics
     all_metrics = {}

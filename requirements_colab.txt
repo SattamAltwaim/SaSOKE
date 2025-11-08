@@ -1,0 +1,43 @@
+# SOKE Dependencies for Google Colab
+# PyTorch and Lightning
+pytorch-lightning>=2.0.0
+torchmetrics>=1.0.0
+
+# Transformers and NLP
+transformers>=4.30.0
+sentencepiece>=0.1.99
+diffusers>=0.20.0
+
+# Configuration
+omegaconf>=2.3.0
+pyyaml>=6.0
+
+# Utilities
+shortuuid>=1.0.0
+einops>=0.6.0
+more-itertools>=10.0.0
+natsort>=8.0.0
+ftfy>=6.1.0
+
+# Visualization and Logging
+wandb>=0.15.0
+tensorboard>=2.14.0
+rich>=13.0.0
+matplotlib>=3.7.0
+
+# Data Processing
+pandas>=2.0.0
+h5py>=3.9.0
+scikit-image>=0.21.0
+tqdm>=4.65.0
+
+# SMPL-X and 3D
+smplx>=0.1.28
+trimesh>=3.22.0
+
+# NLP
+spacy>=3.6.0
+
+# Download utilities
+gdown>=4.7.0
+

@@ -60,7 +60,7 @@ class Text2MotionDataset(data.Dataset):
             self.fps = self.csv['fps']
             self.csv['DURATION'] = self.csv['END_REALIGNED'] - self.csv['START_REALIGNED']
             self.csv = self.csv[self.csv['DURATION']<30].reset_index(drop=True) # remove sequences longer than 30 seconds
-            self.ids = self.csv['SENTENCE_NAME'] #[:100]
+            self.ids = self.csv['SENTENCE_NAME']  # Use all samples
 
             print('loading how2sign data...', len(self.ids))
             for idx in tqdm(range(len(self.ids))):

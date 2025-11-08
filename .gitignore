@@ -1,24 +1,71 @@
-__pycache__
-__pycache__/
-checkpoints
-checkpoints/
-deps
+# Large data files and models - keep in Google Drive
+data/
 deps/
-experiments
+checkpoints/
+smpl-x/
 experiments/
-experiments_1
-experiments_1/
-results
 results/
-visualize
-visualize/
-wandb
-wandb/
-slurm/job
-slurm/job/
-slurm/out
-slurm/out/
 
-*.csv
-*.zip
-*.png
+# Temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyTorch
+*.pth
+*.ckpt
+*.pt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Project specific
+*.log
+*.out
+
+# Keep these empty directories
+!data/.gitkeep
+!deps/.gitkeep
+!checkpoints/.gitkeep
+!smpl-x/.gitkeep
