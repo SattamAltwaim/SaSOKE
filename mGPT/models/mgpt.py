@@ -92,7 +92,11 @@ class MotionGPT(BaseModel):
 
         # Forward
         # texts = ['Generate motion: ' + text for text in texts]
-        outputs, output_texts = self.lm.generate_direct(texts, do_sample=True)
+        # Default to How2Sign (American Sign Language) if not specified
+        # Options: 'how2sign' (ASL), 'csl' (Chinese SL), 'phoenix' (German SL)
+        src = batch.get("src", ["how2sign"] * len(texts))
+        name = batch.get("name", [None] * len(texts))
+        outputs, output_texts = self.lm.generate_direct(texts, do_sample=True, src=src, name=name)
 
         # Motion Decode
         feats_rst_lst = []
