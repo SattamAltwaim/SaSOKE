@@ -176,7 +176,11 @@ def parse_args(phase="train"):
     params = parser.parse_args()
     
     # Load yaml config files
-    OmegaConf.register_new_resolver("eval", eval)
+    # Register resolver with replace=True to allow re-running (e.g., in notebooks)
+    if not OmegaConf.has_resolver("eval"):
+        OmegaConf.register_new_resolver("eval", eval)
+    else:
+        OmegaConf.register_new_resolver("eval", eval, replace=True)
     cfg_assets = OmegaConf.load(params.cfg_assets)
     cfg_base = OmegaConf.load(pjoin(cfg_assets.CONFIG_FOLDER, 'default.yaml'))
     cfg_exp = OmegaConf.merge(cfg_base, OmegaConf.load(params.cfg))
