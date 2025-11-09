@@ -59,11 +59,64 @@ class BaseModel(LightningModule):
                 f_rst = feats_rst[i, :rst_len[i]]
                 f_ref = feats_ref[i, :ref_len[i]]
                 t = text[i]
-                pkl_dict = {'feats_rst': f_rst, 'feats_ref': f_ref, 'text': t}
+                
+                # Extract SMPL-X parameters from features
+                smplx_rst = self._feats_to_smplx(f_rst)
+                smplx_ref = self._feats_to_smplx(f_ref)
+                
+                pkl_dict = {
+                    'feats_rst': f_rst, 
+                    'feats_ref': f_ref, 
+                    'text': t,
+                    'smplx_rst': smplx_rst,
+                    'smplx_ref': smplx_ref
+                }
                 with open(os.path.join(save_dir, f'{cur_n}.pkl'), 'wb') as f:
                     pickle.dump(pkl_dict, f)
         # self.test_step_outputs.append(outputs)
         return outputs
+    
+    def _feats_to_smplx(self, features):
+        """Convert 133-dim compressed features to SMPL-X parameters.
+        
+        Args:
+            features: numpy array of shape (T, 133)
+            
+        Returns:
+            dict with SMPL-X parameters
+        """
+        import torch
+        
+        # Convert to torch if needed
+        if isinstance(features, np.ndarray):
+            features = torch.from_numpy(features).float()
+        
+        # Denormalize features
+        if hasattr(self, 'datamodule') and hasattr(self.datamodule.hparams, 'mean'):
+            mean = self.datamodule.hparams.mean
+            std = self.datamodule.hparams.std
+            if isinstance(mean, torch.Tensor):
+                mean = mean.cpu()
+                std = std.cpu()
+            features = features * std + mean
+        
+        # Add zero root pose (36 dims) to get 169 dims total
+        T = features.shape[0]
+        zero_pose = torch.zeros(T, 36)
+        features_full = torch.cat([zero_pose, features], dim=-1)  # (T, 169)
+        
+        # Extract SMPL-X parameters
+        # SMPL-X format: root(3) + body(63) + lhand(45) + rhand(45) + jaw(3) + expr(10) = 169
+        smplx_params = {
+            'root_pose': features_full[:, 0:3].numpy(),      # (T, 3) - global orientation
+            'body_pose': features_full[:, 3:66].numpy(),     # (T, 63) - 21 body joints × 3
+            'lhand_pose': features_full[:, 66:111].numpy(),  # (T, 45) - 15 left hand joints × 3
+            'rhand_pose': features_full[:, 111:156].numpy(), # (T, 45) - 15 right hand joints × 3
+            'jaw_pose': features_full[:, 156:159].numpy(),   # (T, 3) - jaw rotation
+            'expression': features_full[:, 159:169].numpy(), # (T, 10) - facial expression
+        }
+        
+        return smplx_params
 
     def predict_step(self, batch, batch_idx):
         return self.forward(batch)
