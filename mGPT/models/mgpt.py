@@ -96,7 +96,13 @@ class MotionGPT(BaseModel):
         # Options: 'how2sign' (ASL), 'csl' (Chinese SL), 'phoenix' (German SL)
         src = batch.get("src", ["how2sign"] * len(texts))
         name = batch.get("name", [None] * len(texts))
-        outputs, output_texts = self.lm.generate_direct(texts, do_sample=True, src=src, name=name)
+        
+        # For multi-head mBART model, generate_direct returns a dictionary
+        gen_output = self.lm.generate_direct(texts, do_sample=True, src=src, name=name)
+        outputs = gen_output['outputs_tokens']
+        output_texts = gen_output['cleaned_text']
+        outputs_hand = gen_output.get('outputs_tokens_hand', None)
+        outputs_rhand = gen_output.get('outputs_tokens_rhand', None)
 
         # Motion Decode
         feats_rst_lst = []
@@ -108,7 +114,18 @@ class MotionGPT(BaseModel):
                 motion = self.vae.decode(
                     torch.cat((batch["motion"][i], outputs[i])))
             elif task in ["t2m", "m2t", "inbetween"]:
+                # Decode body motion
                 motion = self.vae.decode(outputs[i])
+                
+                # Decode hand motions if available
+                if outputs_hand is not None and self.hand_vae_cfg is not None:
+                    motion_lhand = self.hand_vae.decode(outputs_hand[i])
+                    motion = torch.cat([motion, motion_lhand], dim=-1)
+                
+                if outputs_rhand is not None and self.rhand_vae_cfg is not None:
+                    motion_rhand = self.rhand_vae.decode(outputs_rhand[i])
+                    motion = torch.cat([motion, motion_rhand], dim=-1)
+                
                 # motion = self.datamodule.denormalize(motion)
                 lengths.append(motion.shape[1])
             else:
