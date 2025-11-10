@@ -98,7 +98,9 @@ class MotionGPT(BaseModel):
         name = batch.get("name", [None] * len(texts))
         
         # For multi-head mBART model, generate_direct returns a dictionary
-        gen_output = self.lm.generate_direct(texts, do_sample=True, src=src, name=name)
+        # max_length: 256 tokens = up to 1024 frames at 4 frames/token
+        # Set reasonable generation length based on text (at least 20-40 tokens for meaningful motion)
+        gen_output = self.lm.generate_direct(texts, do_sample=True, src=src, name=name, max_length=400, num_beams=1)
         outputs = gen_output['outputs_tokens']
         output_texts = gen_output['cleaned_text']
         outputs_hand = gen_output.get('outputs_tokens_hand', None)
