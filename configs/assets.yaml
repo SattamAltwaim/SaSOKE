@@ -20,7 +20,7 @@ DATASET:
 
 METRIC:
   TM2T:
-    t2m_path: /content/drive/MyDrive/GraduationProject/CodeFiles/SaSOKE/deps/t2m/ # path for tm2t evaluator
+    t2m_path: /content/drive/MyDrive/GraduationProject/CodeFiles/SaSOKE/deps/t2m/t2m/t2m/text_mot_match/model/ # path for tm2t evaluator
 
 model:
   whisper_path: deps/whisper-large-v2 # path for whisper model, webui only
