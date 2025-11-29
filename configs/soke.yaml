@@ -1,5 +1,5 @@
 NAME: SOKE # Experiment names
-ACCELERATOR: 'mps' # Devices optioncal: "cpu", "gpu", "tpu", "ipu", "hpu", "mps, "auto"
+ACCELERATOR: 'gpu' # Devices optioncal: "cpu", "gpu", "tpu", "ipu", "hpu", "mps, "auto"
 NUM_NODES: 1 # Number of GPU nodes for distributed training
 DEVICE: [0] # Index of gpus eg. [0] or [0,1,2,3]
 
@@ -12,7 +12,7 @@ TRAIN:
   END_EPOCH: 150 # End epoch
   RESUME: '' # Resume training from this path
   PRETRAINED: '' # Preatrained model path
-  PRETRAINED_VAE: '/Volumes/The Storage!/SOKE/checkpoints/vae/tokenizer.ckpt' # Vae model path
+  PRETRAINED_VAE: '/content/drive/MyDrive/GraduationProject/CodeFiles/SaSOKE/checkpoints/vae/tokenizer.ckpt' # Vae model path
 
   OPTIM:
     target: AdamW
