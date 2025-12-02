@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOKE - Text to Sign Language</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-dark: #0a0a0f; --bg-surface: #12121a; --bg-card: #1a1a24; --accent-primary: #6366f1; --accent-secondary: #8b5cf6; --accent-glow: rgba(99, 102, 241, 0.4); --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b; --border-color: rgba(255, 255, 255, 0.08); --success: #22c55e; --error: #ef4444; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg-dark); color: var(--text-primary); min-height: 100vh; }
+        .bg-pattern { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%); }
+        .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
+        header { text-align: center; padding: 30px 0 20px; }
+        .logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .logo-icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 8px 32px var(--accent-glow); }
+        h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(135deg, var(--text-primary), var(--accent-primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .subtitle { color: var(--text-secondary); font-size: 1rem; }
+        .server-url-box { margin: 10px auto; padding: 12px 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; max-width: 600px; }
+        .server-url-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; }
+        .server-url-input { width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary); }
+        .server-url-input:focus { outline: none; border-color: var(--accent-primary); }
+        .server-status { display: inline-block; margin-left: 10px; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .server-status.connected { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .server-status.disconnected { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+        .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; flex: 1; }
+        .panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; }
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
+        .panel-header h2 { font-size: 0.9rem; font-weight: 600; }
+        .panel-icon { width: 32px; height: 32px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .panel-body { padding: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+        textarea { width: 100%; min-height: 100px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--text-primary); resize: vertical; transition: all 0.2s; }
+        textarea:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-glow); }
+        textarea::placeholder { color: var(--text-muted); }
+        select { width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--text-primary); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+        select:focus { outline: none; border-color: var(--accent-primary); }
+        .generate-btn { width: 100%; padding: 14px 20px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border: none; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 600; color: white; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
+        .generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow); }
+        .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .generate-btn .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-bar { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 0.8rem; display: none; align-items: center; gap: 8px; }
+        .status-bar.show { display: flex; }
+        .status-bar.info { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--accent-primary); }
+        .status-bar.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: var(--success); }
+        .status-bar.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--error); }
+        #viewer-container { flex: 1; min-height: 400px; background: var(--bg-surface); border-radius: 12px; overflow: hidden; position: relative; }
+        #three-canvas { width: 100%; height: 100%; display: block; }
+        .viewer-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-muted); }
+        .viewer-placeholder .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+        .playback-controls { display: flex; align-items: center; gap: 10px; padding: 16px 20px; background: var(--bg-surface); border-top: 1px solid var(--border-color); }
+        .control-btn { width: 40px; height: 40px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .control-btn:hover:not(:disabled) { background: var(--accent-primary); border-color: var(--accent-primary); }
+        .control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .timeline { flex: 1; height: 6px; background: var(--bg-card); border-radius: 3px; cursor: pointer; overflow: hidden; }
+        .timeline-progress { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 3px; width: 0%; }
+        .frame-counter { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-secondary); min-width: 80px; text-align: right; }
+        .speed-select { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-primary); }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; display: none; }
+        .stats-grid.show { display: grid; }
+        .stat-item { background: var(--bg-surface); border-radius: 10px; padding: 12px; text-align: center; }
+        .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 600; color: var(--accent-primary); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+        .examples { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); }
+        .examples h3 { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 10px; }
+        .example-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .example-chip { padding: 6px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+        .example-chip:hover { background: rgba(99, 102, 241, 0.1); border-color: var(--accent-primary); color: var(--accent-primary); }
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 15, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .loading-overlay.active { opacity: 1; pointer-events: all; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        .loading-text { margin-top: 12px; color: var(--text-secondary); font-size: 0.85rem; }
+        @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } #viewer-container { min-height: 350px; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🤟</div>
+                <h1>SOKE</h1>
+            </div>
+            <p class="subtitle">Real-time Text to Sign Language Generation</p>
+            <div class="server-url-box">
+                <div class="server-url-label">🔗 Server URL <span class="server-status disconnected" id="server-status">Disconnected</span></div>
+                <input type="text" class="server-url-input" id="server-url" placeholder="https://xxxx-colab.googleusercontent.com" value="COLAB_URL_PLACEHOLDER">
+            </div>
+        </header>
+        <div class="main-layout">
+            <div class="panel">
+                <div class="panel-header"><div class="panel-icon">✍️</div><h2>Input</h2></div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        <label for="text-input">Enter text to translate</label>
+                        <textarea id="text-input" placeholder="Type a sentence...">Hello, how are you today?</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="language-select">Target Sign Language</label>
+                        <select id="language-select">
+                            <option value="how2sign">🇺🇸 American Sign Language (ASL)</option>
+                            <option value="csl">🇨🇳 Chinese Sign Language (CSL)</option>
+                            <option value="phoenix">🇩🇪 German Sign Language (DGS)</option>
+                        </select>
+                    </div>
+                    <button id="generate-btn" class="generate-btn"><span class="btn-text">🚀 Generate Sign Language</span></button>
+                    <div id="status-bar" class="status-bar"><span class="status-text"></span></div>
+                    <div class="examples">
+                        <h3>Try these examples:</h3>
+                        <div class="example-chips">
+                            <span class="example-chip" data-text="Hello, how are you?">Hello</span>
+                            <span class="example-chip" data-text="Thank you for your help.">Thank you</span>
+                            <span class="example-chip" data-text="Nice to meet you!">Nice to meet you</span>
+                            <span class="example-chip" data-text="What is your name?">What's your name?</span>
+                        </div>
+                    </div>
+                    <div class="stats-grid" id="stats-grid">
+                        <div class="stat-item"><div class="stat-value" id="stat-frames">-</div><div class="stat-label">Frames</div></div>
+                        <div class="stat-item"><div class="stat-value" id="stat-duration">-</div><div class="stat-label">Duration</div></div>
+                        <div class="stat-item"><div class="stat-value" id="stat-time">-</div><div class="stat-label">Gen Time</div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel" style="display: flex; flex-direction: column;">
+                <div class="panel-header"><div class="panel-icon">👁️</div><h2>3D Visualization</h2></div>
+                <div class="panel-body" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
+                    <div id="viewer-container">
+                        <canvas id="three-canvas"></canvas>
+                        <div class="viewer-placeholder" id="placeholder"><div class="icon">🧍</div><p>Enter text and click Generate</p></div>
+                        <div class="loading-overlay" id="loading-overlay"><div class="loading-spinner"></div><div class="loading-text">Generating...</div></div>
+                    </div>
+                    <div class="playback-controls">
+                        <button class="control-btn" id="play-btn" disabled>▶</button>
+                        <button class="control-btn" id="pause-btn" disabled>⏸</button>
+                        <button class="control-btn" id="reset-btn" disabled>↺</button>
+                        <div class="timeline" id="timeline"><div class="timeline-progress" id="timeline-progress"></div></div>
+                        <span class="frame-counter" id="frame-counter">0 / 0</span>
+                        <select class="speed-select" id="speed-select"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let API_URL = '';
+        const FPS = 20;
+        let meshData = null, currentFrame = 0, totalFrames = 0, isPlaying = false, animationId = null, lastFrameTime = 0, playbackSpeed = 1;
+        let scene, camera, renderer, controls, mesh = null, geometry = null;
+
+        function updateServerUrl() {
+            let url = document.getElementById('server-url').value.trim();
+            if (!url) {
+                showStatus('error', 'Please enter a server URL');
+                return;
+            }
+            // Remove trailing slash
+            url = url.replace(/\/$/, '');
+            API_URL = url;
+            localStorage.setItem('soke_server_url', url);
+            checkServerStatus();
+        }
+
+        function checkServerStatus() {
+            if (!API_URL) {
+                document.getElementById('server-status').className = 'server-status disconnected';
+                document.getElementById('server-status').textContent = 'Disconnected';
+                return;
+            }
+            
+            fetch(`${API_URL}/health`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'healthy') {
+                        document.getElementById('server-status').className = 'server-status connected';
+                        document.getElementById('server-status').textContent = 'Connected ✓';
+                        showStatus('success', 'Connected to SOKE API ✓');
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('server-status').className = 'server-status disconnected';
+                    document.getElementById('server-status').textContent = 'Connection Failed';
+                    showStatus('error', 'Cannot connect to server. Check URL and ensure server is running.');
+                });
+        }
+
+        function initThreeJS() {
+            const container = document.getElementById('viewer-container');
+            const canvas = document.getElementById('three-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x12121a);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0.5, 2.5);
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, 0.5, 0);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const light = new THREE.DirectionalLight(0xffffff, 0.8);
+            light.position.set(2, 3, 2);
+            scene.add(light);
+            scene.add(new THREE.DirectionalLight(0x6366f1, 0.3).position.set(-2, 1, -1));
+            const grid = new THREE.GridHelper(4, 20, 0x333344, 0x222233);
+            grid.position.y = -0.5;
+            scene.add(grid);
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            (function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
+        }
+
+        function createMesh(vertices, faces) {
+            if (mesh) { scene.remove(mesh); geometry.dispose(); }
+            geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices.flat()), 3));
+            geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(faces.flat()), 1));
+            geometry.computeVertexNormals();
+            mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color: 0x6366f1, shininess: 30, side: THREE.DoubleSide }));
+            scene.add(mesh);
+            const box = new THREE.Box3().setFromObject(mesh);
+            controls.target.copy(box.getCenter(new THREE.Vector3()));
+        }
+
+        function updateMesh(vertices) {
+            if (!geometry) return;
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices.flat()), 3));
+            geometry.computeVertexNormals();
+        }
+
+        function playAnimation() {
+            if (!meshData || totalFrames === 0) return;
+            isPlaying = true;
+            document.getElementById('play-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            lastFrameTime = performance.now();
+            function step(ts) {
+                if (!isPlaying) return;
+                if (ts - lastFrameTime >= 1000 / (FPS * playbackSpeed)) {
+                    currentFrame = (currentFrame + 1) % totalFrames;
+                    updateMesh(meshData.vertices[currentFrame]);
+                    updateUI();
+                    lastFrameTime = ts;
+                }
+                animationId = requestAnimationFrame(step);
+            }
+            animationId = requestAnimationFrame(step);
+        }
+
+        function pauseAnimation() {
+            isPlaying = false;
+            document.getElementById('play-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            if (animationId) cancelAnimationFrame(animationId);
+        }
+
+        function resetAnimation() {
+            pauseAnimation();
+            currentFrame = 0;
+            if (meshData) updateMesh(meshData.vertices[0]);
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('frame-counter').textContent = `${currentFrame + 1} / ${totalFrames}`;
+            document.getElementById('timeline-progress').style.width = `${((currentFrame + 1) / totalFrames) * 100}%`;
+        }
+
+        function showStatus(type, msg) {
+            const bar = document.getElementById('status-bar');
+            bar.className = `status-bar show ${type}`;
+            bar.querySelector('.status-text').textContent = msg;
+            if (type === 'success') setTimeout(() => bar.classList.remove('show'), 4000);
+        }
+
+        async function generate() {
+            if (!API_URL) {
+                showStatus('error', 'Please enter server URL and press Enter');
+                return;
+            }
+            
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) { showStatus('error', 'Please enter text'); return; }
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div><span>Generating...</span>';
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('loading-overlay').classList.add('active');
+            showStatus('info', 'Generating sign language...');
+            try {
+                const res = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, sign_language: document.getElementById('language-select').value, fps: FPS, include_mesh: true })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Failed');
+                if (data.mesh_data?.vertices && data.mesh_data?.faces) {
+                    meshData = data.mesh_data;
+                    totalFrames = meshData.vertices.length;
+                    currentFrame = 0;
+                    createMesh(meshData.vertices[0], meshData.faces);
+                    document.getElementById('play-btn').disabled = false;
+                    document.getElementById('reset-btn').disabled = false;
+                    document.getElementById('stats-grid').classList.add('show');
+                    document.getElementById('stat-frames').textContent = data.num_frames;
+                    document.getElementById('stat-duration').textContent = `${(data.num_frames / FPS).toFixed(2)}s`;
+                    document.getElementById('stat-time').textContent = `${data.generation_time.toFixed(2)}s`;
+                    updateUI();
+                    showStatus('success', `Generated ${data.num_frames} frames!`);
+                    playAnimation();
+                } else throw new Error('No mesh data');
+            } catch (e) {
+                showStatus('error', `Error: ${e.message}`);
+                document.getElementById('placeholder').style.display = 'flex';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="btn-text">🚀 Generate Sign Language</span>';
+                document.getElementById('loading-overlay').classList.remove('active');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            
+            // Load saved URL or use placeholder
+            const savedUrl = localStorage.getItem('soke_server_url');
+            const urlInput = document.getElementById('server-url');
+            if (savedUrl && savedUrl !== 'COLAB_URL_PLACEHOLDER') {
+                urlInput.value = savedUrl;
+            }
+            
+            // Update server URL when input changes
+            urlInput.addEventListener('change', updateServerUrl);
+            urlInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    updateServerUrl();
+                }
+            });
+            
+            // Initial connection check
+            updateServerUrl();
+            
+            document.getElementById('generate-btn').addEventListener('click', generate);
+            document.getElementById('play-btn').addEventListener('click', playAnimation);
+            document.getElementById('pause-btn').addEventListener('click', pauseAnimation);
+            document.getElementById('reset-btn').addEventListener('click', resetAnimation);
+            document.getElementById('timeline').addEventListener('click', e => {
+                pauseAnimation();
+                currentFrame = Math.floor((e.clientX - e.target.getBoundingClientRect().left) / e.target.offsetWidth * totalFrames);
+                if (meshData) updateMesh(meshData.vertices[currentFrame]);
+                updateUI();
+            });
+            document.getElementById('speed-select').addEventListener('change', e => { playbackSpeed = parseFloat(e.target.value); });
+            document.querySelectorAll('.example-chip').forEach(c => c.addEventListener('click', () => { document.getElementById('text-input').value = c.dataset.text; }));
+            document.getElementById('text-input').addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) generate(); });
+        });
+    </script>
+</body>
+</html>
+
