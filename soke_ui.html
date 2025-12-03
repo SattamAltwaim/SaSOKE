@@ -88,7 +88,7 @@
             <p class="subtitle">Real-time Text to Sign Language Generation</p>
             <div class="server-url-box">
                 <div class="server-url-label">🔗 Server URL <span class="server-status disconnected" id="server-status">Disconnected</span></div>
-                <input type="text" class="server-url-input" id="server-url" placeholder="https://xxxx-colab.googleusercontent.com" value="COLAB_URL_PLACEHOLDER">
+                <input type="text" class="server-url-input" id="server-url" placeholder="Auto-detected from current page">
             </div>
         </header>
         <div class="main-layout">
@@ -146,7 +146,7 @@
         </div>
     </div>
     <script>
-        let API_URL = '';
+        let API_URL = window.location.origin; // Automatically use the same server
         const FPS = 20;
         let meshData = null, currentFrame = 0, totalFrames = 0, isPlaying = false, animationId = null, lastFrameTime = 0, playbackSpeed = 1;
         let scene, camera, renderer, controls, mesh = null, geometry = null;
@@ -154,8 +154,8 @@
         function updateServerUrl() {
             let url = document.getElementById('server-url').value.trim();
             if (!url) {
-                showStatus('error', 'Please enter a server URL');
-                return;
+                // Use same origin if empty
+                url = window.location.origin;
             }
             // Remove trailing slash
             url = url.replace(/\/$/, '');
@@ -329,11 +329,16 @@
         document.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
             
-            // Load saved URL or use placeholder
+            // Load saved URL or use current origin
             const savedUrl = localStorage.getItem('soke_server_url');
             const urlInput = document.getElementById('server-url');
             if (savedUrl && savedUrl !== 'COLAB_URL_PLACEHOLDER') {
                 urlInput.value = savedUrl;
+                API_URL = savedUrl;
+            } else {
+                // Auto-fill with current page's origin
+                urlInput.value = window.location.origin;
+                API_URL = window.location.origin;
             }
             
             // Update server URL when input changes
@@ -345,7 +350,7 @@
             });
             
             // Initial connection check
-            updateServerUrl();
+            checkServerStatus();
             
             document.getElementById('generate-btn').addEventListener('click', generate);
             document.getElementById('play-btn').addEventListener('click', playAnimation);
