@@ -369,11 +369,18 @@
     </div>
 
     <script type="module">
-        // Configuration - UPDATE THIS WITH YOUR API URL
-        const API_URL = 'https://subloral-edyth-procrastinatively.ngrok-free.dev/api/generate';
-        
         // Wait for DOM and model-viewer to be ready
-        customElements.whenDefined('model-viewer').then(() => {
+        document.addEventListener('DOMContentLoaded', () => {
+            // Wait for model-viewer to load
+            customElements.whenDefined('model-viewer').then(() => {
+                initApp();
+            });
+        });
+        
+        function initApp() {
+            // Configuration - UPDATE THIS WITH YOUR API URL
+            const API_URL = 'https://subloral-edyth-procrastinatively.ngrok-free.dev/api/generate';  // Colab API URL via ngrok
+            
             const frames = [];
             let currentFrame = 0;
             let isPlaying = true;
@@ -397,6 +404,14 @@
             const loading = document.getElementById('loading');
             const errorMessage = document.getElementById('errorMessage');
             
+            // Check all elements exist
+            if (!viewer || !frameIndicator || !playBtn || !pauseBtn || !resetBtn || 
+                !uploadBtn || !textInput || !langSelect || !inputOverlay || !textOverlay || 
+                !textContent || !controls || !loading || !errorMessage) {
+                console.error('Missing required elements');
+                return;
+            }
+            
             async function generateAnimation() {
                 const text = textInput.value.trim();
                 const langToken = langSelect.value;
@@ -417,7 +432,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true',
+                            'ngrok-skip-browser-warning': 'true',  // Skip ngrok browser warning
                         },
                         body: JSON.stringify({
                             text: text,
@@ -559,7 +574,7 @@
                     generateAnimation();
                 }
             });
-        });
+        }
     </script>
 </body>
 </html>
