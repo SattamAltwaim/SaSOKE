@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Generator</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        body {
+            background: #000000;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .viewer-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            --poster-color: #000000;
+        }
+        
+        /* Input overlay - glassmorphic */
+        .input-overlay {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 20px;
+            padding: 24px 40px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            max-width: 90%;
+            width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .text-input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .lang-select-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input[type="text"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 400;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        input[type="text"]:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 140px;
+        }
+        
+        select:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        select option {
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        /* Circular upload button */
+        .upload-button {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+        
+        .upload-button:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .upload-button:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .upload-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .upload-icon {
+            width: 24px;
+            height: 24px;
+            fill: #000000;
+        }
+        
+        /* Text overlay (shown after generation) */
+        .text-overlay {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 20px;
+            padding: 24px 40px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            max-width: 90%;
+            text-align: center;
+            display: none;
+        }
+        
+        .text-overlay.show {
+            display: block;
+        }
+        
+        .text-content {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: -0.3px;
+            line-height: 1.4;
+        }
+        
+        .frame-indicator {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 12px;
+            padding: 10px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .frame-indicator.show {
+            display: block;
+        }
+        
+        /* Controls overlay */
+        .controls {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            display: flex;
+            gap: 12px;
+            display: none;
+        }
+        
+        .controls.show {
+            display: flex;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 10px 16px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.active {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+        /* Loading state */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 16px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        /* Error message */
+        .error-message {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(239, 68, 68, 0.2);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: 12px;
+            padding: 12px 20px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            max-width: 90%;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <model-viewer
+            id="viewer"
+            src=""
+            alt="Sign language avatar"
+            camera-controls
+            auto-rotate
+            rotation-per-second="10deg"
+            shadow-intensity="0"
+            exposure="1"
+            camera-orbit="0deg 85deg 2.5m"
+            min-camera-orbit="auto auto 1.5m"
+            max-camera-orbit="auto auto 4m"
+            environment-image="neutral"
+            interaction-prompt="none">
+        </model-viewer>
+        
+        <div class="controls" id="controls">
+            <button id="playBtn" class="active">Play</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        
+        <div class="frame-indicator" id="frameIndicator">
+            Frame 1/0
+        </div>
+        
+        <div class="loading" id="loading">
+            Generating animation...
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <div class="input-overlay" id="inputOverlay">
+            <div class="input-group">
+                <div class="text-input-wrapper">
+                    <label for="textInput">Text to Translate</label>
+                    <input 
+                        type="text" 
+                        id="textInput" 
+                        placeholder="Enter text to translate to sign language..."
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="lang-select-wrapper">
+                    <label for="langSelect">Language</label>
+                    <select id="langSelect">
+                        <option value="how2sign">🇺🇸 ASL</option>
+                        <option value="csl">🇨🇳 CSL</option>
+                        <option value="phoenix">🇩🇪 DGS</option>
+                    </select>
+                </div>
+                <button class="upload-button" id="uploadBtn" title="Generate">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 13L12 8L17 13M12 18V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="text-overlay" id="textOverlay">
+            <div class="text-content" id="textContent"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Configuration - UPDATE THIS WITH YOUR API URL
+        const API_URL = 'http://localhost:5000/api/generate';  // Change this to your Colab API URL
+        
+        const frames = [];
+        let currentFrame = 0;
+        let isPlaying = true;
+        let animationInterval;
+        let savedCameraOrbit = null;
+        let savedCameraTarget = null;
+        let savedFieldOfView = null;
+        
+        const viewer = document.getElementById('viewer');
+        const frameIndicator = document.getElementById('frameIndicator');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const textInput = document.getElementById('textInput');
+        const langSelect = document.getElementById('langSelect');
+        const inputOverlay = document.getElementById('inputOverlay');
+        const textOverlay = document.getElementById('textOverlay');
+        const textContent = document.getElementById('textContent');
+        const controls = document.getElementById('controls');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        async function generateAnimation() {
+            const text = textInput.value.trim();
+            const langToken = langSelect.value;
+            
+            if (!text) {
+                showError('Please enter some text');
+                return;
+            }
+            
+            // Show loading, hide input
+            loading.classList.add('show');
+            inputOverlay.style.display = 'none';
+            errorMessage.classList.remove('show');
+            uploadBtn.disabled = true;
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        lang_token: langToken
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Generation failed');
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Generation failed');
+                }
+                
+                // Get GLB frames from response
+                const glbFrames = data.glb_frames;
+                const numFrames = data.num_frames;
+                
+                if (!glbFrames || glbFrames.length === 0) {
+                    throw new Error('No animation frames received');
+                }
+                
+                // Update frames array
+                frames.length = 0;
+                frames.push(...glbFrames);
+                
+                // Show text overlay
+                textContent.textContent = `"${text}"`;
+                textOverlay.classList.add('show');
+                
+                // Show controls and frame indicator
+                controls.classList.add('show');
+                frameIndicator.classList.add('show');
+                frameIndicator.textContent = `Frame 1/${numFrames}`;
+                
+                // Start animation
+                currentFrame = 0;
+                isPlaying = true;
+                loadFrame(0);
+                startAnimation();
+                
+                // Hide loading
+                loading.classList.remove('show');
+                uploadBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'Failed to generate animation');
+                loading.classList.remove('show');
+                inputOverlay.style.display = 'flex';
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+        
+        function loadFrame(index) {
+            if (frames.length === 0) return;
+            
+            currentFrame = index % frames.length;
+            
+            // Save current camera state before changing frame
+            if (savedCameraOrbit === null) {
+                savedCameraOrbit = viewer.getCameraOrbit();
+                savedCameraTarget = viewer.getCameraTarget();
+                savedFieldOfView = viewer.getFieldOfView();
+            } else {
+                savedCameraOrbit = viewer.getCameraOrbit();
+                savedCameraTarget = viewer.getCameraTarget();
+                savedFieldOfView = viewer.getFieldOfView();
+            }
+            
+            const dataUri = 'data:model/gltf-binary;base64,' + frames[currentFrame];
+            viewer.setAttribute('src', dataUri);
+            
+            // Restore camera state after a brief delay
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    if (savedCameraOrbit) {
+                        viewer.cameraOrbit = `${savedCameraOrbit.theta}rad ${savedCameraOrbit.phi}rad ${savedCameraOrbit.radius}m`;
+                        viewer.cameraTarget = `${savedCameraTarget.x}m ${savedCameraTarget.y}m ${savedCameraTarget.z}m`;
+                        viewer.fieldOfView = `${savedFieldOfView}deg`;
+                    }
+                }, 10);
+            });
+            
+            frameIndicator.textContent = `Frame ${currentFrame + 1}/${frames.length}`;
+        }
+        
+        function startAnimation() {
+            if (frames.length === 0) return;
+            
+            if (animationInterval) clearInterval(animationInterval);
+            const fps = 5;
+            const frameDuration = 1000 / fps;
+            
+            animationInterval = setInterval(() => {
+                if (isPlaying) {
+                    currentFrame = (currentFrame + 1) % frames.length;
+                    loadFrame(currentFrame);
+                }
+            }, frameDuration);
+        }
+        
+        playBtn.addEventListener('click', () => {
+            isPlaying = true;
+            playBtn.classList.add('active');
+            pauseBtn.classList.remove('active');
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            isPlaying = false;
+            pauseBtn.classList.add('active');
+            playBtn.classList.remove('active');
+        });
+        
+        resetBtn.addEventListener('click', () => {
+            currentFrame = 0;
+            loadFrame(currentFrame);
+            isPlaying = false;
+            pauseBtn.classList.add('active');
+            playBtn.classList.remove('active');
+        });
+        
+        uploadBtn.addEventListener('click', generateAnimation);
+        
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateAnimation();
+            }
+        });
+    </script>
+</body>
+</html>
