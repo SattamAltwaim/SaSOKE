@@ -1,0 +1,89 @@
+NAME: SOKE_Isharah # Experiment name - Isharah Training on RTX 4060
+ACCELERATOR: 'cuda'
+NUM_NODES: 1
+DEVICE: 1 # Number of GPUs to use
+
+TRAIN:
+  STAGE: lm_pretrain
+  NUM_WORKERS: 4 # Adjust if you have issues
+  BATCH_SIZE: 4  # Start small for RTX 4060 (8GB VRAM), can try 8 later
+  END_EPOCH: 150
+  RESUME: 'experiments/mgpt/debug--SOKE_Isharah/checkpoints/epoch-epoch=43.ckpt'
+  PRETRAINED: ''
+  # NEW TOKENIZER PATH - Update this to your new tokenizer.ckpt
+  PRETRAINED_VAE: './tokenizer.ckpt'
+
+  OPTIM:
+    target: AdamW
+    params:
+      lr: 2e-4
+      betas: [0.9, 0.99]
+      weight_decay: 0.0
+  
+  LR_SCHEDULER:
+    target: CosineAnnealingLR
+    params:
+      T_max: ${TRAIN.END_EPOCH}
+      eta_min: 1e-6
+
+EVAL:
+  BATCH_SIZE: 1
+  SPLIT: val
+
+TEST:
+  CHECKPOINTS: null
+  SPLIT: test
+  BATCH_SIZE: 1
+  REPLICATION_TIMES: 1
+  SAVE_PREDICTIONS: True
+
+DATASET:
+  target: mGPT.data.H2S.H2SDataModule
+  H2S:
+    # CHANGED: Use 'isharah' instead of 'how2sign'
+    DATASET_NAME: isharah
+    # LOCAL PATHS - Your data folders
+    ROOT: './data'  # Your data folder
+    CSL_ROOT: ''
+    PHOENIX_ROOT: ''
+    # SMPL-X normalization (in smpl-x folder)
+    MEAN_PATH: './smpl-x/mean.pt'
+    STD_PATH: './smpl-x/std.pt'
+    MAX_MOTION_LEN: 400
+    MIN_MOTION_LEN: 40
+    MAX_TEXT_LEN: 40
+    PICK_ONE_TEXT: true
+    FRAME_RATE: 20.0
+    UNIT_LEN: 4
+    STD_TEXT: False
+  CODE_PATH: TOKENS_h2s_csl_phoenix
+  # Word vectorizer path (glove folder in root)
+  WORD_VERTILIZER_PATH: './glove/'
+
+METRIC:
+  TYPE: []  # Disabled - T2M evaluators not available locally
+
+LOSS:
+  LAMBDA_FEATURE: 1.0
+  LAMBDA_VELOCITY: 0.0
+  LAMBDA_COMMIT: 0.02
+  LAMBDA_CLS: 1.0
+  ABLATION:
+    RECONS_LOSS: 'l1_smooth'
+
+model:
+  target: mGPT.models.mgpt.MotionGPT
+  params:
+    condition: 'text'
+    task: 't2m'
+    lm: ${lm.mbart_h2s_csl_phoenix}
+    # mBART model path (in root folder)
+    lm_path: './mbart-h2s-csl-phoenix'
+    motion_vae: ${vq.re96}
+    hand_vae_cfg: ${vq.hand192}
+    rhand_vae_cfg: ${vq.hand192}
+
+LOGGER:
+  TYPE: ['tensorboard']  # Use tensorboard instead of wandb for local
+  VAL_EVERY_STEPS: 5
+
