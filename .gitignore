@@ -1,4 +1,4 @@
-# Large data files and models - keep in Google Drive
+# Large data files and models - keep in Google Drive / Modal volumes
 data/
 deps/
 checkpoints/
@@ -65,6 +65,14 @@ Desktop.ini
 *.out
 claude.md
 .obsidian/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/firebase-debug.log
+frontend/tsconfig.tsbuildinfo
+frontend/.firebase/
 
 # Keep these empty directories
 !data/.gitkeep

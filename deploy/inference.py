@@ -53,7 +53,6 @@ def _load_mean_std(device):
     """Load and filter mean/std tensors (same logic as H2SDataModule)."""
     mean = torch.load(f"{VOL_MOUNT}/deps/mean.pt", map_location="cpu")
     std = torch.load(f"{VOL_MOUNT}/deps/std.pt", map_location="cpu")
-    # Strip lower-body dims, collapse expression 20->10
     mean = mean[(3 + 3 * 11):]
     mean = torch.cat([mean[:-20], mean[-10:]], dim=0)
     std = std[(3 + 3 * 11):]
@@ -82,7 +81,6 @@ class SOKEInference:
         self.mean, self.std = _load_mean_std(self.device)
         self.shape_param = torch.tensor([SHAPE_PARAM], device=self.device)
 
-        # VQ-VAEs
         print("Loading VQ-VAEs...")
         body_kw = dict(quantizer='ema_reset', code_num=96, code_dim=512,
                        output_emb_width=512, down_t=2, stride_t=2, width=512,
@@ -94,7 +92,6 @@ class SOKEInference:
         self.lhand_vae = VQVae(**hand_kw)
         self.rhand_vae = VQVae(**hand_kw)
 
-        # mBART LM
         print("Loading mBART LM...")
         self.lm = Mbart_Based_MLM(
             model_path=f"{VOL_MOUNT}/deps/mbart-h2s-csl-phoenix-isharah",
@@ -106,7 +103,6 @@ class SOKEInference:
             num_heads=3,
         )
 
-        # Load weights (safe loader stubs out training-only modules)
         print("Loading checkpoints...")
         soke_sd = _safe_torch_load(f"{VOL_MOUNT}/experiments/mgpt/SOKE/checkpoints/last.ckpt")
         deto_sd = _safe_torch_load(f"{VOL_MOUNT}/experiments/mgpt/DETO/checkpoints/last-v3.ckpt")
@@ -120,7 +116,6 @@ class SOKEInference:
         for m in [self.body_vae, self.lhand_vae, self.rhand_vae, self.lm]:
             m.eval().to(self.device)
 
-        # SMPL-X (loaded lazily on first generate call)
         self._smplx_layer = None
         print("Ready.")
 
@@ -139,13 +134,23 @@ class SOKEInference:
         ).to(self.device)
         print("SMPL-X loaded.")
 
+    @staticmethod
+    def _temporal_smooth(params, sigma=1.5):
+        """Gaussian temporal smoothing on SMPL-X params to remove jitter.
+        sigma=1.5 at 20fps ≈ 75ms window — preserves gesture dynamics while
+        eliminating frame-to-frame noise from the VQ-VAE decoder."""
+        from scipy.ndimage import gaussian_filter1d
+        import numpy as np
+        arr = params.cpu().numpy()
+        smoothed = gaussian_filter1d(arr, sigma=sigma, axis=0)
+        return torch.from_numpy(smoothed).to(params.device, dtype=params.dtype)
+
     @torch.no_grad()
-    def generate(self, text: str, lang_token: str = "isharah"):
+    def generate_params(self, text: str, lang_token: str = "isharah"):
         """
-        Returns (vertices, joints, num_frames).
-        vertices: (T, 10475, 3)  joints: (T, N, 3)
+        Stage 1: Text -> SMPL-X parameter tensor. Fast (~2-4s).
+        Returns (full_params, T) where full_params is (T, 169).
         """
-        # 1) Text -> motion tokens
         out = self.lm.generate_direct(
             [text], do_sample=True, src=[lang_token], name=[None], max_length=100,
         )
@@ -153,7 +158,6 @@ class SOKEInference:
         lh_tok = out.get("outputs_tokens_hand", [None])[0]
         rh_tok = out.get("outputs_tokens_rhand", [None])[0]
 
-        # 2) Decode tokens -> motion features
         m_body = self.body_vae.decode(body_tok)
         T = m_body.shape[1]
 
@@ -174,18 +178,42 @@ class SOKEInference:
             m_body[:, :T, :30], m_lh[:, :T], m_rh[:, :T], m_body[:, :T, 30:43],
         ], dim=-1).squeeze(0)  # (T, 133)
 
-        # 3) Denormalize
         feats = feats * self.std + self.mean
 
-        # 4) Unpack SMPL-X params
+        # Smooth in parameter space before SMPL-X forward pass
+        feats = self._temporal_smooth(feats, sigma=1.5)
+
         zeros36 = torch.zeros(T, 36, device=self.device)
         full = torch.cat([zeros36, feats], dim=-1)  # (T, 169)
+        return full, T
 
+    @torch.no_grad()
+    def params_to_vertices(self, full, start, end):
+        """
+        Stage 2: SMPL-X forward pass for a slice of frames.
+        Returns vertices as numpy array (N, 10475, 3) float32.
+        """
+        self._ensure_smplx()
+        chunk = full[start:end]
+        n = chunk.shape[0]
+        shape = self.shape_param.expand(n, -1)
+        zero3 = torch.zeros(n, 3, device=self.device)
+
+        out = self._smplx_layer(
+            betas=shape, global_orient=chunk[:, 0:3], body_pose=chunk[:, 3:66],
+            left_hand_pose=chunk[:, 66:111], right_hand_pose=chunk[:, 111:156],
+            jaw_pose=chunk[:, 156:159], leye_pose=zero3, reye_pose=zero3,
+            expression=chunk[:, 159:169],
+        )
+        return out.vertices.cpu().numpy()
+
+    @torch.no_grad()
+    def generate(self, text: str, lang_token: str = "isharah"):
+        """Full pipeline (backward compat). Returns (vertices, joints, T)."""
+        full, T = self.generate_params(text, lang_token)
+        self._ensure_smplx()
         shape = self.shape_param.expand(T, -1)
         zero3 = torch.zeros(T, 3, device=self.device)
-
-        # 5) SMPL-X forward
-        self._ensure_smplx()
         out = self._smplx_layer(
             betas=shape, global_orient=full[:, 0:3], body_pose=full[:, 3:66],
             left_hand_pose=full[:, 66:111], right_hand_pose=full[:, 111:156],
