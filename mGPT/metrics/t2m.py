@@ -46,6 +46,9 @@ class TM2TMetrics(Metric):
         self.add_state("phoenix_count_seq",
                        default=torch.tensor(0),
                        dist_reduce_fx="sum")
+        self.add_state("isharah_count_seq",
+                       default=torch.tensor(0),
+                       dist_reduce_fx="sum")
 
         self.add_state("how2sign_DTW_MPJPE_PA_lhand",
                        default=torch.tensor([0.0]),
@@ -77,9 +80,20 @@ class TM2TMetrics(Metric):
                        default=torch.tensor([0.0]),
                        dist_reduce_fx="sum")
 
+        self.add_state("isharah_DTW_MPJPE_PA_lhand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_DTW_MPJPE_PA_rhand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_DTW_MPJPE_PA_body",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+
         self.MR_metrics = ["how2sign_DTW_MPJPE_PA_lhand", "how2sign_DTW_MPJPE_PA_rhand", "how2sign_DTW_MPJPE_PA_body", 
                            "csl_DTW_MPJPE_PA_lhand", "csl_DTW_MPJPE_PA_rhand", "csl_DTW_MPJPE_PA_body",
-                           "phoenix_DTW_MPJPE_PA_lhand", "phoenix_DTW_MPJPE_PA_rhand", "phoenix_DTW_MPJPE_PA_body"]
+                           "phoenix_DTW_MPJPE_PA_lhand", "phoenix_DTW_MPJPE_PA_rhand", "phoenix_DTW_MPJPE_PA_body",
+                           "isharah_DTW_MPJPE_PA_lhand", "isharah_DTW_MPJPE_PA_rhand", "isharah_DTW_MPJPE_PA_body"]
 
         # All metric
         self.metrics = self.MR_metrics
@@ -134,8 +148,8 @@ class TM2TMetrics(Metric):
         for i in range(len(lengths)):
             cur_len = lengths[i]
             rst_len = lengths_rst[i]
-            mesh_gt = vertices_ref[i, :cur_len]
-            mesh_out = vertices_rst[i, :rst_len]
+            mesh_gt = vertices_ref[i, :cur_len].float()
+            mesh_out = vertices_rst[i, :rst_len].float()
             joints_rst_cur = joints_rst[i, :rst_len] 
             joints_ref_cur = joints_ref[i, :cur_len]
             data_src = src[i]

@@ -149,12 +149,51 @@ class MRMetrics(Metric):
         self.add_state("phoenix_MPJPE_hand",
                        default=torch.tensor([0.0]),
                        dist_reduce_fx="sum")
+
+        self.add_state("isharah_count", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("isharah_count_seq",
+                       default=torch.tensor(0),
+                       dist_reduce_fx="sum")
+
+        self.add_state("isharah_MPVPE_PA_all",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPVPE_PA_hand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPVPE_PA_face",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+
+        self.add_state("isharah_MPVPE_all",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPVPE_hand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPVPE_face",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+
+        self.add_state("isharah_MPJPE_PA_body",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPJPE_PA_hand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+
+        self.add_state("isharah_MPJPE_body",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
+        self.add_state("isharah_MPJPE_hand",
+                       default=torch.tensor([0.0]),
+                       dist_reduce_fx="sum")
         
         m = ["MPVPE_PA_all", "MPVPE_PA_hand", "MPVPE_PA_face",
             "MPJPE_PA_body", "MPJPE_PA_hand", "MPJPE_body", "MPJPE_hand",
             "MPVPE_all", "MPVPE_hand", "MPVPE_face"]
         self.MR_metrics = []
-        for d in ['how2sign', 'csl', 'phoenix']:
+        for d in ['how2sign', 'csl', 'phoenix', 'isharah']:
             for m_ in m:
                 self.MR_metrics.append(f'{d}_{m_}')
 
@@ -201,11 +240,11 @@ class MRMetrics(Metric):
         vertices_rst = vertices_rst.reshape(B, BT//B, N, 3)
         vertices_ref = vertices_ref.reshape(B, BT//B, N, 3)
 
-        # avoid cuda error of DDP in pampjpe
-        joints_rst = joints_rst.detach().cpu()
-        joints_ref = joints_ref.detach().cpu()
-        vertices_rst = vertices_rst.detach().cpu()
-        vertices_ref = vertices_ref.detach().cpu()
+        # avoid cuda error of DDP in pampjpe; cast to float32 since linalg_svd_cpu doesn't support float16
+        joints_rst = joints_rst.detach().cpu().float()
+        joints_ref = joints_ref.detach().cpu().float()
+        vertices_rst = vertices_rst.detach().cpu().float()
+        vertices_ref = vertices_ref.detach().cpu().float()
         
         for i in range(len(lengths)):
             cur_len = lengths[i]
@@ -221,7 +260,8 @@ class MRMetrics(Metric):
             self.name2scores[cur_name][f"{data_src}_MPVPE_PA_all"] = value.item() / cur_len * 1000
 
             mesh_out_align = mesh_out - joints_rst[i, :cur_len, smpl_x.J_regressor_idx['pelvis']:smpl_x.J_regressor_idx['pelvis']+1] + joints_ref[i, :cur_len, smpl_x.J_regressor_idx['pelvis']:smpl_x.J_regressor_idx['pelvis']+1]
-            setattr(self, f"{data_src}_MPVPE_all", getattr(self, f"{data_src}_MPVPE_PA_all") + torch.mean(torch.sqrt(torch.sum((mesh_out_align - mesh_gt) ** 2, dim=-1)), dim=-1).sum())
+            # setattr(self, f"{data_src}_MPVPE_all", getattr(self, f"{data_src}_MPVPE_PA_all") + torch.mean(torch.sqrt(torch.sum((mesh_out_align - mesh_gt) ** 2, dim=-1)), dim=-1).sum())
+            setattr(self, f"{data_src}_MPVPE_all", getattr(self, f"{data_src}_MPVPE_all") + torch.mean(torch.sqrt(torch.sum((mesh_out_align - mesh_gt) ** 2, dim=-1)), dim=-1).sum())
 
             mesh_gt_lhand = mesh_gt[:, smpl_x.hand_vertex_idx['left_hand'], :]
             mesh_out_lhand = mesh_out[:, smpl_x.hand_vertex_idx['left_hand'], :]

@@ -53,6 +53,8 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
         "csl_MPJPE_PA_hand": "Metrics/csl_MPJPE_PA_hand",
         "phoenix_MPVPE_PA_all": "Metrics/phoenix_MPVPE_PA_all",
         "phoenix_MPJPE_PA_hand": "Metrics/phoenix_MPJPE_PA_hand",
+        "isharah_MPVPE_PA_all": "Metrics/isharah_MPVPE_PA_all",
+        "isharah_MPJPE_PA_hand": "Metrics/isharah_MPJPE_PA_hand",
         "BLEU_1": "Metrics/Bleu_1",
         "BLEU_2": "Metrics/Bleu_2",
         "BLEU_3": "Metrics/Bleu_3",
@@ -83,12 +85,26 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
     # })
     # callbacks.append(ModelCheckpoint(**checkpointParams))
 
+    # Save a checkpoint after every finished epoch (keeps last 5, no metric dependency)
+    callbacks.append(
+        ModelCheckpoint(
+            dirpath=os.path.join(cfg.FOLDER_EXP, "checkpoints"),
+            filename="epoch-{epoch}",
+            monitor="epoch",
+            mode="max",
+            every_n_epochs=1,
+            save_top_k=5,
+            save_last=True,
+            save_on_train_epoch_end=True,
+        )
+    )
+
     checkpointParams = {
         'dirpath': os.path.join(cfg.FOLDER_EXP, "checkpoints"),
         'filename': "{epoch}",
         'monitor': "step",
         'mode': "max",
-        'every_n_epochs': None,  #cfg.LOGGER.VAL_EVERY_STEPS,
+        'every_n_epochs': 1,  #cfg.LOGGER.VAL_EVERY_STEPS,
         'save_top_k': 1,
         'save_last': True, #None,
         'save_on_train_epoch_end': False
@@ -128,6 +144,14 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
             #     'abbr': 'phoenix_DTW_MPJPE_PA_body',
             #     'mode': 'min'
             # }
+            'Metrics/isharah_DTW_MPJPE_PA_lhand': {
+                'abbr': 'isharah_DTW_MPJPE_PA_lhand',
+                'mode': 'min'
+            },
+            # 'Metrics/isharah_DTW_MPJPE_PA_body': {
+            #     'abbr': 'isharah_DTW_MPJPE_PA_body',
+            #     'mode': 'min'
+            # }
         },
         'M2TMetrics': {
             'Metrics/Bleu_4': {
@@ -161,6 +185,14 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
                 'mode': 'min'
             },
             # 'Metrics/phoenix_MPVPE_PA_all': {
+            #     'abbr': 'phoenix_MPVPE_PA_all',
+            #     'mode': 'min'
+            # },
+            'Metrics/isharah_MPJPE_PA_hand': {
+                'abbr': 'isharah_MPJPE_PA_hand',
+                'mode': 'min'
+            },
+            # 'Metrics/isharah_MPVPE_PA_all': {
             #     'abbr': 'phoenix_MPVPE_PA_all',
             #     'mode': 'min'
             # },

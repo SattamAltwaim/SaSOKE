@@ -11,7 +11,7 @@ from rich.progress import track
 from os.path import join as pjoin
 from .dataset_m import MotionDataset
 from .dataset_t2m import Text2MotionDataset
-from .load_data import load_h2s_sample, load_csl_sample, load_phoenix_sample, load_iso_sample
+from .load_data import load_h2s_sample, load_csl_sample, load_phoenix_sample, load_iso_sample, load_isharah_sample
 import random; random.seed(0)
 import json
 from copy import deepcopy
@@ -51,7 +51,8 @@ class H2SMotionDatasetVQ(data.Dataset):
         assert max_motion_length % unit_length == 0 and min_motion_length % unit_length == 0
 
         self.all_data = []
-        self.h2s_len = self.csl_len = self.phoenix_len = 0
+        self.isharah_root = kwargs.get('isharah_root', None)
+        self.h2s_len = self.csl_len = self.phoenix_len = self.isharah_len = 0
 
         if 'how2sign' in dataset_name:
             self.data_dir = os.path.join(data_root, split, 'poses')
@@ -101,7 +102,31 @@ class H2SMotionDatasetVQ(data.Dataset):
                 self.all_data.append(ann)
             self.phoenix_len += len(self.ann)
 
-        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}')
+        if 'isharah' in dataset_name and self.isharah_root is not None:
+            ann_split = 'dev' if split == 'val' else split
+            ann_path = os.path.join(self.isharah_root, '..', '..', 'annotations', 'SI', f'{ann_split}.txt')
+            ann_path = os.path.normpath(ann_path)
+            import csv
+            with open(ann_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f, delimiter='|')
+                isharah_anns = list(reader)
+
+            print(f'{split}--loading isharah annotations...', len(isharah_anns))
+            skipped = 0
+            for entry in tqdm(isharah_anns):
+                opt_dir = os.path.join(self.isharah_root, ann_split, entry['id'], 'opt')
+                if not os.path.isdir(opt_dir):
+                    skipped += 1
+                    continue
+                if len([f for f in os.listdir(opt_dir) if f.endswith('_0.pkl')]) < 4:
+                    skipped += 1
+                    continue
+                self.all_data.append({'name': entry['id'], 'text': entry['text'], 'split': ann_split, 'src': 'isharah'})
+                self.isharah_len += 1
+            if skipped:
+                print(f'Isharah: skipped {skipped} samples with missing/short pose dirs')
+
+        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}, Isharah: {self.isharah_len}')
         
 
     def __len__(self):
@@ -116,6 +141,7 @@ class H2SMotionDatasetVQ(data.Dataset):
         # print(sample['dataset'])
         if src == 'how2sign':
             clip_poses, text, name, _ = load_h2s_sample(sample, self.root_dir)
+            # pass
         elif src == 'csl':
             clip_poses, text, name, _ = load_csl_sample(sample, self.csl_root)
         elif src == 'phoenix':
@@ -129,6 +155,8 @@ class H2SMotionDatasetVQ(data.Dataset):
         elif src == 'phoenix_iso':
             clip_poses, text, name, _ = load_iso_sample(sample, self.phoenix_root, dataset='phoenix_iso')
             src = 'phoenix'
+        elif src == 'isharah':
+            clip_poses, text, name, _ = load_isharah_sample(sample, self.isharah_root)
 
         clip_poses = (clip_poses - self.mean.numpy())/(self.std.numpy()+1e-10)
         m_length = clip_poses.shape[0]

@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import os
 import os.path as osp
 import smplx
 import pickle
@@ -8,7 +9,7 @@ import json
 from collections import defaultdict
 
 
-human_model_path = 'deps/smpl_models'
+human_model_path = os.path.join(os.environ.get('SOKE_DATA_ROOT', '.'), 'deps', 'smpl_models')
 class SMPLX(object):
     def __init__(self):
         self.layer_arg = {'create_global_orient': False, 'create_body_pose': False, 'create_left_hand_pose': False, 'create_right_hand_pose': False, 'create_jaw_pose': False, 'create_leye_pose': False, 'create_reye_pose': False, 'create_betas': False, 'create_expression': False, 'create_transl': False}
@@ -214,28 +215,80 @@ smpl_x = SMPLX()
 # smpl = SMPL()
 
 
+# # they be using 3136 chunk size, no wonder my pc got fried gah damn
+# def get_coord(root_pose, body_pose, lhand_pose, rhand_pose, jaw_pose, shape, expr, remove_lower=True):
+#     batch_size = root_pose.shape[0]
+#     print(f'batch size of get_coord root pose is: {batch_size}')
+#     zero_pose = torch.zeros((1, 3)).float().to(body_pose).repeat(batch_size, 1)  # eye poses
 
-def get_coord(root_pose, body_pose, lhand_pose, rhand_pose, jaw_pose, shape, expr, remove_lower=True):
+#     smplx_layer = copy.deepcopy(smpl_x.layer['neutral']).cuda()
+#     output = smplx_layer(betas=shape, body_pose=body_pose, global_orient=root_pose, right_hand_pose=rhand_pose,
+#                                 left_hand_pose=lhand_pose, jaw_pose=jaw_pose, leye_pose=zero_pose,
+#                                 reye_pose=zero_pose, expression=expr)
+#     # camera-centered 3D coordinate
+#     vertices = output.vertices
+#     joints = output.joints
+
+#     # if remove_lower:
+
+#     # if mode == 'test' and testset == 'AGORA':  # use 144 joints for AGORA evaluation
+#     #     joints = output.joints
+#     # else:
+#     #     joints = output.joints[:, smpl_x.joint_idx, :]
+
+#     return vertices, joints
+
+
+def get_coord(root_pose, body_pose, lhand_pose, rhand_pose, jaw_pose, shape, expr, remove_lower=True, chunk_size=32):
     batch_size = root_pose.shape[0]
-    zero_pose = torch.zeros((1, 3)).float().to(body_pose).repeat(batch_size, 1)  # eye poses
+    # print(f'batch size of get_coord root pose is: {batch_size}')
+    
+    # Process in chunks to avoid OOM
+    if batch_size > chunk_size:
+        # print(f'Processing in chunks of {chunk_size}...')
+        all_vertices = []
+        all_joints = []
+        
+        for i in range(0, batch_size, chunk_size):
+            end_idx = min(i + chunk_size, batch_size)
+            
+            # Process chunk
+            chunk_vertices, chunk_joints = get_coord(
+                root_pose[i:end_idx],
+                body_pose[i:end_idx],
+                lhand_pose[i:end_idx],
+                rhand_pose[i:end_idx],
+                jaw_pose[i:end_idx],
+                shape[i:end_idx],
+                expr[i:end_idx],
+                remove_lower=remove_lower,
+                chunk_size=chunk_size  # Prevent infinite recursion
+            )
+            
+            all_vertices.append(chunk_vertices)
+            all_joints.append(chunk_joints)
+            
+            # Clear cache after each chunk
+            torch.cuda.empty_cache()
+        
+        # Concatenate all chunks
+        vertices = torch.cat(all_vertices, dim=0)
+        joints = torch.cat(all_joints, dim=0)
+        
+        return vertices, joints
+    
+    # Process normally if batch is small enough
+    zero_pose = torch.zeros((1, 3)).float().to(body_pose).repeat(batch_size, 1)
 
-    smplx_layer = copy.deepcopy(smpl_x.layer['neutral']).to(body_pose.device)
+    smplx_layer = copy.deepcopy(smpl_x.layer['neutral']).cuda()
     output = smplx_layer(betas=shape, body_pose=body_pose, global_orient=root_pose, right_hand_pose=rhand_pose,
                                 left_hand_pose=lhand_pose, jaw_pose=jaw_pose, leye_pose=zero_pose,
                                 reye_pose=zero_pose, expression=expr)
-    # camera-centered 3D coordinate
+    
     vertices = output.vertices
     joints = output.joints
 
-    # if remove_lower:
-
-    # if mode == 'test' and testset == 'AGORA':  # use 144 joints for AGORA evaluation
-    #     joints = output.joints
-    # else:
-    #     joints = output.joints[:, smpl_x.joint_idx, :]
-
     return vertices, joints
-
 
 def rigid_transform_3D(A, B):
     n, dim = A.shape

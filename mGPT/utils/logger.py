@@ -55,11 +55,15 @@ def config_logger(final_output_dir, time_str, phase, head):
 def new_dir(cfg, phase, time_str, final_output_dir):
     # new experiment folder
     cfg.TIME = str(time_str)
-    if os.path.exists(final_output_dir) and not os.path.exists(cfg.TRAIN.RESUME) and not cfg.DEBUG and phase not in ['test', 'demo']:
+    pretrained = cfg.TRAIN.get('PRETRAINED', '') or ''
+    if os.path.exists(final_output_dir) and not os.path.exists(cfg.TRAIN.RESUME) and not os.path.exists(pretrained) and not cfg.DEBUG and phase not in ['test', 'demo']:
         file_list = sorted(os.listdir(final_output_dir), reverse=True)
         for item in file_list:
             if item.endswith('.log'):
-                os.rename(str(final_output_dir), str(final_output_dir) + '_' + cfg.TIME)
+                try:
+                    os.rename(str(final_output_dir), str(final_output_dir) + '_' + cfg.TIME)
+                except (PermissionError, OSError):
+                    pass
                 break
     final_output_dir.mkdir(parents=True, exist_ok=True)
     # write config yaml

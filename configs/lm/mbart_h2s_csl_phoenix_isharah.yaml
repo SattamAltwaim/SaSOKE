@@ -1,7 +1,7 @@
 target: mGPT.archs.mgpt_mbart.Mbart_Based_MLM
 params:
   model_type: mbart_multi
-  model_path: '${oc.env:SOKE_DATA_ROOT,.}/deps/mbart-h2s-csl-phoenix'
+  model_path: '${oc.env:SOKE_DATA_ROOT,.}/deps/mbart-h2s-csl-phoenix-isharah'
   num_heads: 3
   stage: ${TRAIN.STAGE}
   motion_codebook_size: ${model.params.codebook_size}

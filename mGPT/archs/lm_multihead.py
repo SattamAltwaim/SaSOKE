@@ -27,20 +27,30 @@ class LMMultiHead(nn.Module):
                  ids_remove_hand=None,
                  ids_remove_rhand=None,
                  num_heads=3,
+                 eos_idx=0
                  ):
         
         super().__init__()
         self.num_heads = num_heads
         self.model_type = model_type
         if 't5' in model_type:
-            self.main_lm = T5ForConditionalGeneration.from_pretrained(model_path)
+            try:
+                self.main_lm = T5ForConditionalGeneration.from_pretrained(model_path)
+            except OSError:
+                from transformers import T5Config
+                self.main_lm = T5ForConditionalGeneration(T5Config.from_pretrained(model_path))
         elif 'mbart' in model_type:
-            self.main_lm = MBartForConditionalGeneration.from_pretrained(model_path)
+            try:
+                self.main_lm = MBartForConditionalGeneration.from_pretrained(model_path)
+            except OSError:
+                from transformers import MBartConfig
+                self.main_lm = MBartForConditionalGeneration(MBartConfig.from_pretrained(model_path))
         self.main_lm.resize_token_embeddings(len_token)
 
         self.ids_remove_motion = ids_remove_motion
         self.ids_remove_hand = ids_remove_hand
         self.ids_remove_rhand = ids_remove_rhand
+        self.eos_idx = eos_idx
 
         self.alpha_hand = 0.4 #1/3
         self.mask_body = torch.zeros(len_token)
@@ -547,8 +557,9 @@ class LMMultiHead(nn.Module):
     ):
         
         max_length = kwargs.get('max_length', 100)
+        min_length = kwargs.get('min_length', 15)  # Reduced to 15 tokens (~2 seconds minimum)
         temperature = kwargs.get('temperature', 1.0)
-        do_sample = False #kwargs.get('do_sample', True)
+        do_sample = kwargs.get('do_sample', True)  # Changed from False to True to enable sampling
 
         if 'mbart' in self.model_type:
             encoder = self.main_lm.get_encoder()
@@ -574,6 +585,7 @@ class LMMultiHead(nn.Module):
             decoder_input_ids = decoder_start_token_id
             decoder_input_ids_hand = decoder_start_token_id
             decoder_input_ids_rhand = decoder_start_token_id
+            finished = torch.tensor([False]*decoder_start_token_id.shape[0]).to(decoder_start_token_id.device)
 
             for i in range(max_length):
                 # if the sequence context is growing too long we must crop it at block_size
@@ -611,9 +623,20 @@ class LMMultiHead(nn.Module):
                         idx_next_rhand = torch.multinomial(probs_rhand, num_samples=1)
                 else:
                     idx_next_body = torch.argmax(probs_body, dim=1, keepdim=True)
+                    # Only allow EOS after min_length is reached
+                    if i < min_length:
+                        idx_next_body[idx_next_body == self.eos_idx] = torch.argmax(probs_body[idx_next_body.squeeze(-1) == self.eos_idx], dim=1, keepdim=True)
+                    idx_next_body[finished] = self.eos_idx
                     if logits_lhand is not None:
                         idx_next_lhand = torch.argmax(probs_lhand, dim=1, keepdim=True)
                         idx_next_rhand = torch.argmax(probs_rhand, dim=1, keepdim=True)
+                        if i < min_length:
+                            idx_next_lhand[idx_next_lhand == self.eos_idx] = torch.argmax(probs_lhand[idx_next_lhand.squeeze(-1) == self.eos_idx], dim=1, keepdim=True)
+                            idx_next_rhand[idx_next_rhand == self.eos_idx] = torch.argmax(probs_rhand[idx_next_rhand.squeeze(-1) == self.eos_idx], dim=1, keepdim=True)
+                        idx_next_lhand[finished] = idx_next_rhand[finished] = self.eos_idx
+                    
+                    # finished = torch.any(idx_next_body.squeeze(-1) == self.eos_idx, dim=-1)
+                    finished = finished | (idx_next_body.squeeze(-1) == self.eos_idx) # fix batch generation
                     
                 # append sampled index to the running sequence and continue
                 decoder_input_ids = torch.cat((decoder_input_ids, idx_next_body), dim=1)

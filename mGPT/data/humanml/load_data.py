@@ -194,6 +194,67 @@ def load_phoenix_sample(ann, data_dir, need_pose=True, code_path=None, need_code
     return clip_poses, clip_text, name, code
 
 
+# Keys in Isharah opt pkl files (axis-angle, need flattening to match 179-dim layout)
+isharah_opt_keys = [
+    'global_orient',   # (1,3)  -> (3,)   smplx_root_pose
+    'body_pose',       # (21,3) -> (63,)  smplx_body_pose
+    'left_hand_pose',  # (15,3) -> (45,)  smplx_lhand_pose
+    'right_hand_pose', # (15,3) -> (45,)  smplx_rhand_pose
+    'jaw_pose',        # (1,3)  -> (3,)   smplx_jaw_pose
+    'betas',           # (1,10) -> (10,)  smplx_shape
+    'expression',      # (1,10) -> (10,)  smplx_expr
+]
+
+
+def load_isharah_sample(ann, data_dir, need_pose=True, code_path=None, need_code=False):
+    """Load a sample from the Isharah-500 dataset.
+
+    Expected directory layout (data_dir = poses/SI):
+        data_dir/{split}/{name}/opt/frame_{frame_id:06d}_0.pkl
+
+    Ann dict must contain: 'name', 'text', 'split'.
+    """
+    clip_text = ann['text']
+    name = ann['name']
+    split = ann['split']
+    opt_dir = os.path.join(data_dir, split, name, 'opt')
+    if not os.path.isdir(opt_dir):
+        return None, None, None, None
+
+    # Only keep per-person-0 frames (suffix _0.pkl) and sort by frame index
+    all_files = sorted(f for f in os.listdir(opt_dir) if f.endswith('_0.pkl'))
+    frame_list = [os.path.join(opt_dir, f) for f in all_files]
+    if len(frame_list) < 4:
+        return None, None, None, None
+
+    clip_poses = np.zeros([len(frame_list), 179])
+    if need_pose:
+        try:
+            for frame_id, frame_path in enumerate(frame_list):
+                with open(frame_path, 'rb') as f:
+                    poses = pickle.load(f)
+                pose = np.concatenate([np.array(poses[k]).flatten() for k in isharah_opt_keys], axis=0)
+                clip_poses[frame_id] = pose
+        except Exception:
+            return None, None, None, None
+
+        # Remove lower-body joints (same masking as other datasets)
+        clip_poses = clip_poses[:, (3 + 3 * 11):]
+        # Remove shape params, keep expression  → 133-dim
+        clip_poses = np.concatenate([clip_poses[:, :-20], clip_poses[:, -10:]], axis=1)
+
+    code = None
+    if need_code:
+        try:
+            fname = os.path.join(code_path, 'isharah', f'{name}.npy')
+            code = np.load(fname)[0]
+        except Exception:
+            fname = os.path.join(code_path, f'{name}.npy')
+            code = np.load(fname)[0]
+
+    return clip_poses, clip_text, name, code
+
+
 def sample(input,count):
     ss=float(len(input))/count
     return [ input[int(math.floor(i*ss))] for i in range(count) ]

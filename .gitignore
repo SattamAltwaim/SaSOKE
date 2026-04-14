@@ -63,6 +63,8 @@ Desktop.ini
 # Project specific
 *.log
 *.out
+claude.md
+.obsidian/
 
 # Keep these empty directories
 !data/.gitkeep

@@ -11,7 +11,7 @@ import torch
 import pickle, gzip
 from copy import deepcopy
 from tqdm import tqdm
-from .load_data import load_h2s_sample, load_csl_sample, load_phoenix_sample, load_iso_sample
+from .load_data import load_h2s_sample, load_csl_sample, load_phoenix_sample, load_iso_sample, load_isharah_sample
 
 # Some how2sign ids are broken, failing in pose fitting.
 bad_how2sign_ids = ['0DU7wWLK-QU_0-8-rgb_front', '0ICZi26jdaQ_28-5-rgb_front', '0vNfEYst_tQ_11-8-rgb_front', '13X0vEMNm7M_8-5-rgb_front', '14weIYQswlE_23-8-rgb_front', '1B56XMJ-j1Q_13-8-rgb_front', '1P0oKY4FNyI_0-8-rgb_front', '1dpRaxOTfZs_0-8-rgb_front', '1ei1kVTw23A_29-8-rgb_front', '1spCnuBmWYk_0-8-rgb_front', '2-vXO7MMLJc_0-5-rgb_front', '21PbS6wnHtY_0-5-rgb_front', '3tyfxL2wO-M_0-8-rgb_front', 'BpYDl3AO4B8_0-1-rgb_front', 'CH7AviIr0-0_14-8-rgb_front', 'CJ8RyW9pzKU_6-8-rgb_front', 'D0T7ho08Q3o_25-2-rgb_front', 'Db5SUQvNsHc_18-1-rgb_front', 'Eh697LCFjTw_0-3-rgb_front', 'F-p1IdedNbg_23-8-rgb_front', 'aUBQCNegrYc_13-1-rgb_front', 'cvn7htBA8Xc_9-8-rgb_front', 'czBrBQgZIuc_19-5-rgb_front', 'dbSAB8F8GYc_11-9-rgb_front', 'doMosV-zfCI_7-2-rgb_front', 'dvBdWGLzayI_10-8-rgb_front', 'eBrlZcccILg_26-3-rgb_front', '39FN42e41r0_17-1-rgb_front', 'a4Nxq0QV_WA_9-3-rgb_front', 'fzrJBu2qsM8_11-8-rgb_front', 'g3Cc_1-V31U_12-3-rgb_front']
@@ -39,6 +39,7 @@ class Text2MotionDatasetToken(data.Dataset):
         self.root_dir = data_root
         self.csl_root = kwargs.get('csl_root', None)
         self.phoenix_root = kwargs.get('phoenix_root', None)
+        self.isharah_root = kwargs.get('isharah_root', None)
         
         self.mean = mean
         self.std = std
@@ -48,7 +49,23 @@ class Text2MotionDatasetToken(data.Dataset):
         assert max_motion_length % unit_length == 0 and min_motion_length % unit_length == 0
 
         self.all_data = []
-        self.h2s_len = self.csl_len = self.phoenix_len = 0
+        self.h2s_len = self.csl_len = self.phoenix_len = self.isharah_len = 0
+
+        # Load Isharah first so bugs surface early during tokenization
+        if 'isharah' in dataset_name and self.isharah_root is not None:
+            ann_split = 'dev' if split == 'val' else split
+            ann_path = os.path.join(self.isharah_root, '..', '..', 'annotations', 'SI', f'{ann_split}.txt')
+            ann_path = os.path.normpath(ann_path)
+            import csv
+            with open(ann_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f, delimiter='|')
+                isharah_anns = list(reader)
+
+            print(f'{split}--loading isharah annotations...', len(isharah_anns))
+            for entry in tqdm(isharah_anns):
+                self.all_data.append({'name': entry['id'], 'text': entry['text'], 'split': ann_split, 'src': 'isharah'})
+            self.isharah_len += len(isharah_anns)
+
         if 'how2sign' in dataset_name:
             self.data_dir = os.path.join(data_root, split, 'poses')
             self.csv_path = os.path.join(data_root, split, 're_aligned', 'how2sign_realigned_'+split+'_preprocessed_fps.csv')
@@ -97,7 +114,7 @@ class Text2MotionDatasetToken(data.Dataset):
                 self.all_data.append(ann)
             self.phoenix_len += len(self.ann)
 
-        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}')
+        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}, Isharah: {self.isharah_len}')
 
 
     def __len__(self):
@@ -125,6 +142,13 @@ class Text2MotionDatasetToken(data.Dataset):
         elif src == 'phoenix_iso':
             clip_poses, text, name, _ = load_iso_sample(sample, self.phoenix_root, dataset='phoenix_iso')
             src = 'phoenix'
+        elif src == 'isharah':
+            clip_poses, text, name, _ = load_isharah_sample(sample, self.isharah_root)
+
+        # If pose loading failed (missing/corrupt file), return a zero-length
+        # pose so get_motion_code.py's `if pose.shape[1] == 0: continue` skips it
+        if clip_poses is None:
+            return name, torch.zeros(0, self.mean.shape[0]).float(), 0, True, True, True, True, True, True, src
 
         clip_poses = (clip_poses - self.mean.numpy())/(self.std.numpy()+1e-10)
         m_length = clip_poses.shape[0]

@@ -52,7 +52,7 @@ class MMMetrics(Metric):
             dataname = "t2m"
         t2m_checkpoint = torch.load(os.path.join(
             cfg.METRIC.TM2T.t2m_path, dataname,
-            "text_mot_match/model/finest.tar"),
+            "t2m/text_mot_match/model/finest.tar"), # added t2m/ as a fix
                                     map_location="cpu")
 
         self.t2m_textencoder.load_state_dict(t2m_checkpoint["text_encoder"])

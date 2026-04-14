@@ -86,18 +86,13 @@ class MotionGPT(BaseModel):
 
         # Forward
         # texts = ['Generate motion: ' + text for text in texts]
-        # Default to How2Sign (American Sign Language) if not specified
-        # Options: 'how2sign' (ASL), 'csl' (Chinese SL), 'phoenix' (German SL)
-        src = batch.get("src", ["how2sign"] * len(texts))
-        name = batch.get("name", [None] * len(texts))
-        
-        # For multi-head mBART model, generate_direct returns a dictionary
-        # max_length should be generous to allow full generation (256 tokens = up to 1024 frames at 4 frames/token)
-        gen_output = self.lm.generate_direct(texts, do_sample=True, src=src, name=name, max_length=256, num_beams=1)
-        outputs = gen_output['outputs_tokens']
-        output_texts = gen_output['cleaned_text']
-        outputs_hand = gen_output.get('outputs_tokens_hand', None)
-        outputs_rhand = gen_output.get('outputs_tokens_rhand', None)
+        # -- ADJUSTED BY Claude Sonnet 4.5: Pass src and name from batch, handle dict return
+        src = batch.get("src", None)
+        name = batch.get("name", None)
+        output_dict = self.lm.generate_direct(texts, do_sample=True, src=src, name=name)
+        outputs = output_dict['outputs_tokens']
+        output_texts = output_dict['cleaned_text']
+        # -- END ADJUSTMENT
 
         # Motion Decode
         feats_rst_lst = []
@@ -109,18 +104,7 @@ class MotionGPT(BaseModel):
                 motion = self.vae.decode(
                     torch.cat((batch["motion"][i], outputs[i])))
             elif task in ["t2m", "m2t", "inbetween"]:
-                # Decode body motion
                 motion = self.vae.decode(outputs[i])
-                
-                # Decode hand motions if available
-                if outputs_hand is not None and hasattr(self, 'hand_vae') and self.hand_vae is not None:
-                    motion_lhand = self.hand_vae.decode(outputs_hand[i])
-                    motion = torch.cat([motion, motion_lhand], dim=-1)
-                
-                if outputs_rhand is not None and hasattr(self, 'rhand_vae') and self.rhand_vae is not None:
-                    motion_rhand = self.rhand_vae.decode(outputs_rhand[i])
-                    motion = torch.cat([motion, motion_rhand], dim=-1)
-                
                 # motion = self.datamodule.denormalize(motion)
                 lengths.append(motion.shape[1])
             else:

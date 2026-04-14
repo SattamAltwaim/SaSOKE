@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import torch, os, pickle, math
-from .load_data import load_csl_sample, load_h2s_sample, load_phoenix_sample
+from .load_data import load_csl_sample, load_h2s_sample, load_phoenix_sample, load_isharah_sample
 from .dataset_t2m import Text2MotionDataset
 
 
@@ -32,16 +32,25 @@ class Text2MotionDatasetEval(Text2MotionDataset):
 
 
     def __getitem__(self, idx):
-        sample = self.all_data[idx]
-        src = sample['src']
+        for _ in range(len(self.all_data)):
+            sample = self.all_data[idx]
+            src = sample['src']
 
-        if src == 'how2sign':
-            clip_poses, text, name, _ = load_h2s_sample(sample, self.data_dir)
-        elif src == 'csl':
-            clip_poses, text, name, _ = load_csl_sample(sample, self.csl_root)
-        elif src == 'phoenix':
-            clip_poses, text, name, _ = load_phoenix_sample(sample, self.phoenix_root)
-        
+            if src == 'how2sign':
+                clip_poses, text, name, _ = load_h2s_sample(sample, self.data_dir)
+            elif src == 'csl':
+                clip_poses, text, name, _ = load_csl_sample(sample, self.csl_root)
+            elif src == 'phoenix':
+                clip_poses, text, name, _ = load_phoenix_sample(sample, self.phoenix_root)
+            elif src == 'isharah':
+                clip_poses, text, name, _ = load_isharah_sample(sample, self.isharah_root)
+            else:
+                clip_poses = None
+
+            if clip_poses is not None:
+                break
+            idx = (idx + 1) % len(self.all_data)
+
         all_captions = [text]
         all_captions = all_captions * 3  #?
 

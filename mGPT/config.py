@@ -49,13 +49,20 @@ def resume_config(cfg: OmegaConf):
     
     if cfg.TRAIN.RESUME:
         resume = cfg.TRAIN.RESUME
-        if os.path.exists(resume):
-            # Checkpoints
-            cfg.TRAIN.PRETRAINED = pjoin(resume, "checkpoints", "last.ckpt")
+        if os.path.isdir(resume):
+            # Legacy: RESUME points to experiment folder, resolve to last.ckpt
+            cfg.TRAIN.RESUME = pjoin(resume, "checkpoints", "last.ckpt")
+            cfg.TRAIN.PRETRAINED = cfg.TRAIN.RESUME
             # Wandb
-            wandb_files = os.listdir(pjoin(resume, "wandb", "latest-run"))
-            wandb_run = [item for item in wandb_files if "run-" in item][0]
-            cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
+            wandb_latest = pjoin(resume, "wandb", "latest-run")
+            if os.path.exists(wandb_latest):
+                wandb_files = os.listdir(wandb_latest)
+                wandb_run = [item for item in wandb_files if "run-" in item]
+                if wandb_run:
+                    cfg.LOGGER.WANDB.params.id = wandb_run[0].replace("run-","").replace(".wandb", "")
+        elif os.path.isfile(resume):
+            # RESUME already points directly to a .ckpt file
+            cfg.TRAIN.PRETRAINED = resume
         else:
             raise ValueError("Resume path is not right.")
 
@@ -96,7 +103,8 @@ def parse_args(phase="train"):
     group.add_argument("--use_gpus",
                            type=str,
                            required=False,
-                           default='2,3,4,5,6,7',
+                        #    default='2,3,4,5,6,7',
+                           default='0', # adjusted for my current setup (only one gpu)
                            help="cuda environ devices")
     
     # Parse for each phase
@@ -176,11 +184,7 @@ def parse_args(phase="train"):
     params = parser.parse_args()
     
     # Load yaml config files
-    # Register resolver with replace=True to allow re-running (e.g., in notebooks)
-    if not OmegaConf.has_resolver("eval"):
-        OmegaConf.register_new_resolver("eval", eval)
-    else:
-        OmegaConf.register_new_resolver("eval", eval, replace=True)
+    OmegaConf.register_new_resolver("eval", eval)
     cfg_assets = OmegaConf.load(params.cfg_assets)
     cfg_base = OmegaConf.load(pjoin(cfg_assets.CONFIG_FOLDER, 'default.yaml'))
     cfg_exp = OmegaConf.merge(cfg_base, OmegaConf.load(params.cfg))

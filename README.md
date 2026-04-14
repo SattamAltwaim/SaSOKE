@@ -1,299 +1,125 @@
-# SaSOKE: Saudi Sign Language Production
+# SaSOKE — Real-Time Saudi/Arabic Sign Language Production
 
-Fine-tuning SOKE for Saudi Sign Language (Isharah) dataset.
+SaSOKE generates 3D sign language animations from text input. Type Arabic or English text, and the system produces a full-body SMPL-X mesh animation of the corresponding sign language.
 
-Forked from [SOKE: Signs as Tokens](https://github.com/2000ZRL/SOKE) by Zuo et al. (ICCV 2025)
-
-**Project:** Senior Project I, University of Jeddah  
----
-
-## Quick Start
-
-### 1. Access Colab Notebooks
-
-Open [Google Colab](https://colab.research.google.com)
-- File → Open notebook → GitHub
-- Enter: `SattamAltwaim/SaSOKE`
-- Select notebook to open
-
-### 2. First-Time Setup
-
-Open `notebooks/1_setup_and_data_prep.ipynb`
-
-**In Colab:**
-- Runtime → Change runtime type → GPU (T4, V100, or A100)
-- Run all cells to install dependencies and download models
-
-**Downloads to Google Drive:**
-- SMPL models
-- mBART pretrained model
-- Tokenizer checkpoint
-- Evaluation models
-
-**Time:** ~15-20 minutes
-
-### 3. Upload Your Dataset
-
-Create folder in Google Drive:
-```
-/MyDrive/SOKE_data/data/Isharah/
-```
-
-Upload your dataset with this structure:
-```
-/MyDrive/SOKE_data/
-├── data/
-│   └── Isharah/
-│       ├── train/
-│       │   ├── poses/
-│       │   │   └── [sentence_name]/
-│       │   │       └── [sentence_name]_[frame]_3D.pkl
-│       │   └── re_aligned/
-│       │       └── isharah_realigned_train_preprocessed_fps.csv
-│       ├── val/
-│       │   ├── poses/
-│       │   └── re_aligned/
-│       └── test/
-│           ├── poses/
-│           └── re_aligned/
-├── deps/                    # Auto-downloaded by setup
-├── smpl-x/                  # Auto-downloaded by setup
-└── checkpoints/             # Auto-downloaded by setup
-```
-
-**CSV Format Required:**
-- VIDEO_ID
-- VIDEO_NAME
-- SENTENCE_ID
-- SENTENCE_NAME
-- START_REALIGNED
-- END_REALIGNED
-- SENTENCE
-- fps
-
-### 4. Training
-
-#### Option A: Use Pretrained Tokenizer (Recommended)
-Open `notebooks/3_train_soke.ipynb` and run all cells
-
-#### Option B: Train Your Own Tokenizer
-1. Open `notebooks/2_train_tokenizer.ipynb` and run all cells
-2. Then open `notebooks/3_train_soke.ipynb` and run all cells
-
-**Training Time:**
-- T4 GPU (Free): ~72 hours
-- V100 GPU (Pro): ~36 hours
-- A100 GPU (Pro+): ~18 hours
-
-### 5. Inference
-
-Open `notebooks/4_inference.ipynb` and run all cells
-
-**Outputs:**
-- Predictions: `results/mgpt/SOKE/test_rank_0/*.pkl`
-- Metrics: `results/mgpt/SOKE/test_rank_0/test_scores.json`
-
----
-
-## Notebooks Overview
-
-### 1. Setup and Data Preparation
-**File:** `notebooks/1_setup_and_data_prep.ipynb`  
-**Purpose:** Environment setup and model downloads  
-**Run:** Once per Colab session  
-**Time:** 15-20 minutes
-
-### 2. Train Tokenizer (Optional)
-**File:** `notebooks/2_train_tokenizer.ipynb`  
-**Purpose:** Train VQ-VAE to discretize sign poses  
-**Skip if:** Using pretrained tokenizer  
-**Time:** 24-48 hours  
-**Output:** `checkpoints/vae/tokenizer.ckpt` in Drive
-
-### 3. Train SOKE Model
-**File:** `notebooks/3_train_soke.ipynb`  
-**Purpose:** Fine-tune mBART on sign language data  
-**Requires:** Tokenizer checkpoint  
-**Time:** 36-72 hours  
-**Output:** `experiments/mgpt/SOKE/checkpoints/` in Colab
-
-### 4. Inference
-**File:** `notebooks/4_inference.ipynb`  
-**Purpose:** Generate sign language predictions  
-**Requires:** Trained model  
-**Time:** 1-4 hours  
-**Output:** Predictions and evaluation metrics
-
----
-
-## GPU Selection
-
-In Colab: **Runtime → Change runtime type → Hardware accelerator → GPU**
-
-**Free Tier (T4 - 16GB VRAM):**
-- Batch size: 8
-- Training time: ~72 hours
-- Good for: Testing and small datasets
-
-**Colab Pro (V100 - 32GB VRAM):**
-- Batch size: 16
-- Training time: ~36 hours
-- Good for: Full training runs
-
-**Colab Pro+ (A100 - 40GB VRAM):**
-- Batch size: 32
-- Training time: ~18 hours
-- Good for: Fast iteration
-
----
-
-## Configuration
-
-Notebooks auto-configure paths. No manual editing needed.
-
-**Code Location:** `/content/SaSOKE` (cloned from GitHub)  
-**Data Location:** `/content/drive/MyDrive/SOKE_data/` (in Drive)
-
-### Adjust Batch Size (if needed)
-
-Edit config cell in training notebooks:
-```python
-config['TRAIN']['BATCH_SIZE'] = 8  # Change based on GPU memory
-```
-
-### Adjust Workers (if slow)
-
-```python
-config['TRAIN']['NUM_WORKERS'] = 2  # Reduce if data loading is slow
-```
-
----
-
-## Monitoring Training
-
-### TensorBoard (Built-in)
-
-In training notebook:
-```python
-%load_ext tensorboard
-%tensorboard --logdir experiments/mgpt/SOKE/
-```
-
-### Checkpoints
-
-Auto-saved to Drive every few epochs:
-- Latest: `experiments/mgpt/SOKE/checkpoints/last.ckpt`
-- Best: `experiments/mgpt/SOKE/checkpoints/best.ckpt`
-
----
-
-## Troubleshooting
-
-### "Runtime disconnected"
-- Reconnect and remount Drive
-- Training resumes from last checkpoint
-- Re-run setup notebook if packages missing
-
-### "Out of memory"
-- Reduce batch size in config
-- Use smaller GPU or upgrade to Pro
-- Reduce NUM_WORKERS to 2
-
-### "File not found"
-- Verify Drive structure: `/MyDrive/SOKE_data/`
-- Check dataset uploaded correctly
-- Run setup notebook to download models
-
-### "Slow data loading"
-- Reduce NUM_WORKERS
-- Ensure data is in Drive (not Colab local storage)
-- Check internet connection
-
-### "Import errors"
-- Re-run setup notebook
-- Restart runtime: Runtime → Restart runtime
-- Check pip install completed without errors
-
----
-
-## Updating Code
-
-### Pull Latest Changes
-
-In Colab notebook:
-```python
-!git pull origin main
-```
-
-### Make Local Changes
-
-Edit files in Colab, then commit:
-```python
-!git config --global user.email "your@email.com"
-!git config --global user.name "Your Name"
-!git add .
-!git commit -m "Your changes"
-!git push
-```
-
----
-
-## File Structure
-
-```
-SaSOKE/
-├── mGPT/                    # Core model code
-│   ├── archs/              # VQ-VAE and mBART models
-│   ├── data/               # Data loading
-│   ├── models/             # Model definitions
-│   └── metrics/            # Evaluation
-├── configs/                 # Configuration files
-│   ├── soke.yaml          # Main config
-│   ├── deto.yaml          # Tokenizer config
-│   └── assets.yaml        # Model paths
-├── notebooks/               # Colab notebooks (start here)
-│   ├── 1_setup_and_data_prep.ipynb
-│   ├── 2_train_tokenizer.ipynb
-│   ├── 3_train_soke.ipynb
-│   └── 4_inference.ipynb
-├── train.py                # Training script
-├── test.py                 # Inference script
-└── requirements_colab.txt  # Dependencies
-```
-
----
+Built on [SOKE (Signs as Tokens)](https://github.com/EyadAlgha/IsharahSOKE) by Zuo et al. (ICCV 2025), fine-tuned on the [Isharah-500](https://snalyami.github.io/Isharah_CSLR/) dataset — the first large-scale continuous Saudi Sign Language (SSL) dataset featuring 30,000+ video samples signed by deaf and hearing-impaired individuals.
 
 ## Architecture
 
-### Stage 1: Tokenizer (DETO)
-- 3 VQ-VAE models: body, left hand, right hand
-- Discretizes continuous poses into tokens
-- Codebook sizes: body=96, hands=192
+```
+Browser (Three.js)  ←—  SSE stream  ←—  Modal GPU endpoint (SOKE inference)
+```
 
-### Stage 2: Generator (AMG)
-- Base: mBART-large-cc25
-- Multi-head decoding for simultaneous prediction
-- Fine-tuned on sign language token sequences
+**Two-stage model pipeline:**
 
----
+1. **DETO (Decoupled Tokenizer)** — Three VQ-VAE models discretize sign poses into tokens. Codebook sizes: body=96, left hand=192, right hand=192.
+2. **AMG (Autoregressive Multilingual Generator)** — mBART-large-cc25 with multi-head decoding predicts body/hand tokens simultaneously from text. DETO decoder converts tokens back to SMPL-X pose parameters (133 dims/frame at 20 FPS).
 
-## Evaluation Metrics
+## Project Structure
 
-**DTW MPJPE PA** (Dynamic Time Warping Mean Per Joint Position Error, Procrustes Aligned)
+```
+SaSOKE/
+├── deploy/                 # Modal deployment (our code)
+│   ├── image.py            # App, image, volume definitions
+│   ├── download.py         # One-time model weight download
+│   ├── inference.py        # SOKEInference engine (text → SMPL-X vertices)
+│   ├── serve.py            # POST /generate SSE endpoint
+│   └── test.py             # Smoke test
+├── mGPT/                   # Upstream model code (from IsharahSOKE)
+│   ├── archs/              # VQ-VAE, mBART, multi-head LM  ← used in inference
+│   ├── utils/              # SMPL-X wrapper, helpers        ← used in inference
+│   ├── data/               # Data modules (training only)
+│   ├── models/             # MotionGPT wrapper (training only)
+│   ├── losses/             # Loss functions (training only)
+│   ├── metrics/            # Evaluation metrics (training only)
+│   └── render/             # Blender/matplotlib viz (training only)
+├── configs/                # OmegaConf YAML model configs
+├── scripts/                # Isharah keyword generation scripts
+├── name2kws_*.json         # Keyword lookup tables (inference)
+├── word2code.json          # Word-to-motion-code mapping (inference)
+└── requirements.txt        # Python deps (inference + training sections)
+```
 
-Separate metrics for:
-- Body
-- Left hand
-- Right hand
+## Setup
 
-Lower values = better performance
+### Prerequisites
 
----
+- Python 3.10+
+- [Modal](https://modal.com/) account and CLI (`pip install modal && modal setup`)
+- Model weights from Google Drive (see below)
 
-## Credits
+### 1. Download model weights
 
-**Original SOKE:** Zuo et al., "Signs as Tokens: A Retrieval-Enhanced Multilingual Sign Language Generator," ICCV 2025
+Populate the Modal persistent volume with all checkpoints and SMPL-X body models:
 
-**Isharah Dataset:** Alyami et. al, "Isharah: A Large-Scale Multi-Scene Dataset for Continuous Sign Language Recognition," SDAIA-KFUPM Joint Research Center for Artificial Intelligence
+```bash
+modal run deploy/download.py
+```
 
----
+This downloads:
+- SOKE checkpoint (~4.8 GB)
+- DETO checkpoint (~779 MB)
+- mBART weights (tokenizer + config)
+- SMPL-X body models
+- Denormalization tensors (mean.pt, std.pt)
+
+### 2. Verify inference
+
+```bash
+modal run deploy/test.py
+```
+
+Expected output:
+```
+Frames: 260
+Vertices: torch.Size([260, 10475, 3])
+PASS
+```
+
+### 3. Run the API
+
+```bash
+# Development (hot reload)
+modal serve deploy/serve.py
+
+# Production
+modal deploy deploy/serve.py
+```
+
+## API
+
+### `POST /generate`
+
+Streams SMPL-X vertex frames via Server-Sent Events.
+
+**Request:**
+```json
+{
+  "text": "مرحبا كيف حالك",
+  "lang_token": "isharah"
+}
+```
+
+**SSE Events:**
+- `metadata` — `{ "fps": 20, "total_frames": N }`
+- `frame` — `{ "frame": i, "vertices": [[x,y,z], ...] }` (10,475 vertices per frame)
+- `done` — `{}`
+
+**Supported language tokens:** `isharah` (Saudi SL), `how2sign` (ASL), `csl` (Chinese SL), `phoenix` (German SL)
+
+## Model Details
+
+- **Output:** 133-dim feature vector per frame → SMPL-X mesh (10,475 vertices)
+- **Frame rate:** 20 FPS
+- **Typical length:** 40–400 frames (2–20 seconds)
+- **Body model:** SMPL-X neutral (54 joints including hands and face)
+
+## Acknowledgments
+
+- [SOKE: Unified Sign Language Production](https://github.com/EyadAlgha/IsharahSOKE) — Zuo et al., ICCV 2025
+- [Isharah-500 Dataset](https://snalyami.github.io/Isharah_CSLR/) — Large-scale continuous Saudi Sign Language dataset (Alyami et al., IEEE TMM 2026)
+- [SMPL-X](https://smpl-x.is.tue.mpg.de/) — Expressive body model
+
+## License
+
+See [license.txt](license.txt).

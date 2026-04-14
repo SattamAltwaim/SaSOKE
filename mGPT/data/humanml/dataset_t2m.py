@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 import random; random.seed(0)
 from copy import deepcopy
-from .load_data import load_csl_sample, load_h2s_sample, load_phoenix_sample
+from .load_data import load_csl_sample, load_h2s_sample, load_phoenix_sample, load_isharah_sample
 
 # Some how2sign ids are broken, failing in pose fitting.
 bad_how2sign_ids = ['0DU7wWLK-QU_0-8-rgb_front', '0ICZi26jdaQ_28-5-rgb_front', '0vNfEYst_tQ_11-8-rgb_front', '13X0vEMNm7M_8-5-rgb_front', '14weIYQswlE_23-8-rgb_front', '1B56XMJ-j1Q_13-8-rgb_front', '1P0oKY4FNyI_0-8-rgb_front', '1dpRaxOTfZs_0-8-rgb_front', '1ei1kVTw23A_29-8-rgb_front', '1spCnuBmWYk_0-8-rgb_front', '2-vXO7MMLJc_0-5-rgb_front', '21PbS6wnHtY_0-5-rgb_front', '3tyfxL2wO-M_0-8-rgb_front', 'BpYDl3AO4B8_0-1-rgb_front', 'CH7AviIr0-0_14-8-rgb_front', 'CJ8RyW9pzKU_6-8-rgb_front', 'D0T7ho08Q3o_25-2-rgb_front', 'Db5SUQvNsHc_18-1-rgb_front', 'Eh697LCFjTw_0-3-rgb_front', 'F-p1IdedNbg_23-8-rgb_front', 'aUBQCNegrYc_13-1-rgb_front', 'cvn7htBA8Xc_9-8-rgb_front', 'czBrBQgZIuc_19-5-rgb_front', 'dbSAB8F8GYc_11-9-rgb_front', 'doMosV-zfCI_7-2-rgb_front', 'dvBdWGLzayI_10-8-rgb_front', 'eBrlZcccILg_26-3-rgb_front', '39FN42e41r0_17-1-rgb_front', 'a4Nxq0QV_WA_9-3-rgb_front', 'fzrJBu2qsM8_11-8-rgb_front', 'g3Cc_1-V31U_12-3-rgb_front']
@@ -42,6 +42,7 @@ class Text2MotionDataset(data.Dataset):
         self.unit_length = unit_length
         self.csl_root = kwargs.get('csl_root', None)
         self.phoenix_root = kwargs.get('phoenix_root', None)
+        self.isharah_root = kwargs.get('isharah_root', None)
 
         # Data mean and std
         self.mean = mean
@@ -52,7 +53,21 @@ class Text2MotionDataset(data.Dataset):
         assert max_motion_length % unit_length == 0 and min_motion_length % unit_length == 0
 
         self.all_data = []
-        self.h2s_len = self.csl_len = self.phoenix_len = 0
+        self.h2s_len = self.csl_len = self.phoenix_len = self.isharah_len = 0
+        if 'isharah' in dataset_name and self.isharah_root is not None:
+            ann_split = 'dev' if split == 'val' else split
+            ann_path = os.path.join(self.isharah_root, '..', '..', 'annotations', 'SI', f'{ann_split}.txt')
+            ann_path = os.path.normpath(ann_path)
+            import csv
+            with open(ann_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f, delimiter='|')
+                isharah_anns = list(reader)
+
+            print('loading isharah data...', len(isharah_anns))
+            for entry in tqdm(isharah_anns):
+                self.all_data.append({'name': entry['id'], 'text': entry['text'], 'split': ann_split, 'src': 'isharah'})
+            self.isharah_len = len(isharah_anns)
+
         if 'how2sign' in dataset_name:
             self.data_dir = os.path.join(data_root, split, 'poses')
             self.csv_path = os.path.join(data_root, split, 're_aligned', 'how2sign_realigned_'+split+'_preprocessed_fps.csv')
@@ -60,7 +75,7 @@ class Text2MotionDataset(data.Dataset):
             self.fps = self.csv['fps']
             self.csv['DURATION'] = self.csv['END_REALIGNED'] - self.csv['START_REALIGNED']
             self.csv = self.csv[self.csv['DURATION']<30].reset_index(drop=True) # remove sequences longer than 30 seconds
-            self.ids = self.csv['SENTENCE_NAME']  # Use all samples
+            self.ids = self.csv['SENTENCE_NAME'] #[:100]
 
             print('loading how2sign data...', len(self.ids))
             for idx in tqdm(range(len(self.ids))):
@@ -102,7 +117,7 @@ class Text2MotionDataset(data.Dataset):
             self.phoenix_len += len(self.ann)
 
         # random.shuffle(self.all_data)
-        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}')
+        print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}, Isharah: {self.isharah_len}')
         self.nfeats = 133
         # self.reset_max_len(self.max_length)
 
@@ -119,16 +134,25 @@ class Text2MotionDataset(data.Dataset):
 
 
     def __getitem__(self, idx):
-        sample = self.all_data[idx]
-        src = sample['src']
+        for _ in range(len(self.all_data)):
+            sample = self.all_data[idx]
+            src = sample['src']
 
-        if src == 'how2sign':
-            clip_poses, text, name, _ = load_h2s_sample(sample, self.data_dir)
-        elif src == 'csl':
-            clip_poses, text, name, _ = load_csl_sample(sample, self.csl_root)
-        elif src == 'phoenix':
-            clip_poses, text, name, _ = load_phoenix_sample(sample, self.phoenix_root)
-        
+            if src == 'how2sign':
+                clip_poses, text, name, _ = load_h2s_sample(sample, self.data_dir)
+            elif src == 'csl':
+                clip_poses, text, name, _ = load_csl_sample(sample, self.csl_root)
+            elif src == 'phoenix':
+                clip_poses, text, name, _ = load_phoenix_sample(sample, self.phoenix_root)
+            elif src == 'isharah':
+                clip_poses, text, name, _ = load_isharah_sample(sample, self.isharah_root)
+            else:
+                clip_poses = None
+
+            if clip_poses is not None:
+                break
+            idx = (idx + 1) % len(self.all_data)
+
         all_captions = [text]
 
         clip_poses = (clip_poses - self.mean.numpy())/(self.std.numpy()+1e-10)

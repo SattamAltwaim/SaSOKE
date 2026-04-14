@@ -92,19 +92,20 @@ class MotionGPT(BaseModel):
 
         # Forward
         # texts = ['Generate motion: ' + text for text in texts]
-        # Default to How2Sign (American Sign Language) if not specified
-        # Options: 'how2sign' (ASL), 'csl' (Chinese SL), 'phoenix' (German SL)
-        src = batch.get("src", ["how2sign"] * len(texts))
-        name = batch.get("name", [None] * len(texts))
-        
-        # For multi-head mBART model, generate_direct returns a dictionary
-        # max_length: 256 tokens = up to 1024 frames at 4 frames/token
-        # Set reasonable generation length based on text (at least 20-40 tokens for meaningful motion)
-        gen_output = self.lm.generate_direct(texts, do_sample=True, src=src, name=name, max_length=400, num_beams=1)
-        outputs = gen_output['outputs_tokens']
-        output_texts = gen_output['cleaned_text']
-        outputs_hand = gen_output.get('outputs_tokens_hand', None)
-        outputs_rhand = gen_output.get('outputs_tokens_rhand', None)
+        # -- ADJUSTED BY Claude Sonnet 4.5: Pass src and name from batch, handle dict return, increase max_length
+        src = batch.get("src", None)
+        name = batch.get("name", None)
+        output_dict = self.lm.generate_direct(
+            texts, 
+            do_sample=True, 
+            src=src, 
+            name=name, 
+            max_length=100  # max tokens = MAX_MOTION_LEN / unit_length = 400/4 = 100, was 1024 before
+        )
+        outputs = output_dict['outputs_tokens']
+        output_texts = output_dict['cleaned_text']
+        outputs_tokens_hand = output_dict.get('outputs_tokens_hand', None)
+        outputs_tokens_rhand = output_dict.get('outputs_tokens_rhand', None)
 
         # Motion Decode
         feats_rst_lst = []
@@ -116,19 +117,39 @@ class MotionGPT(BaseModel):
                 motion = self.vae.decode(
                     torch.cat((batch["motion"][i], outputs[i])))
             elif task in ["t2m", "m2t", "inbetween"]:
-                # Decode body motion
-                motion = self.vae.decode(outputs[i])
+                # -- ADJUSTED BY Claude Sonnet 4.5: Decode all parts (body, lhand, rhand)
+                # Decode body part
+                motion_body = self.vae.decode(outputs[i])
                 
-                # Decode hand motions if available
-                if outputs_hand is not None and self.hand_vae_cfg is not None:
-                    motion_lhand = self.hand_vae.decode(outputs_hand[i])
-                    motion = torch.cat([motion, motion_lhand], dim=-1)
+                # Decode hand parts if available
+                if outputs_tokens_hand is not None and len(outputs_tokens_hand[i]) > 1:
+                    outputs_tokens_hand[i] = torch.clamp(outputs_tokens_hand[i], 0, self.hand_vae.code_num - 1)
+                    motion_hand = self.hand_vae.decode(outputs_tokens_hand[i])
+                else:
+                    motion_hand = torch.zeros((1, motion_body.shape[1], self.hand_vae.nfeats if hasattr(self, 'hand_vae') else 45)).to(motion_body.device)
                 
-                if outputs_rhand is not None and self.rhand_vae_cfg is not None:
-                    motion_rhand = self.rhand_vae.decode(outputs_rhand[i])
-                    motion = torch.cat([motion, motion_rhand], dim=-1)
+                if outputs_tokens_rhand is not None and len(outputs_tokens_rhand[i]) > 1:
+                    outputs_tokens_rhand[i] = torch.clamp(outputs_tokens_rhand[i], 0, self.rhand_vae.code_num - 1)
+                    motion_rhand = self.rhand_vae.decode(outputs_tokens_rhand[i])
+                else:
+                    motion_rhand = torch.zeros((1, motion_body.shape[1], self.rhand_vae.nfeats if hasattr(self, 'rhand_vae') else 45)).to(motion_body.device)
                 
-                # motion = self.datamodule.denormalize(motion)
+                # Align sequence lengths - use minimum length to ensure all tensors match
+                min_len = min(motion_body.shape[1], motion_hand.shape[1], motion_rhand.shape[1])
+                motion_body = motion_body[:, :min_len]
+                motion_hand = motion_hand[:, :min_len]
+                motion_rhand = motion_rhand[:, :min_len]
+                
+                # Concatenate all parts: body[:30] + lhand + body[30:43] + rhand
+                # Expected structure: 30 + 45 + 13 + 45 = 133
+                motion = torch.cat([
+                    motion_body[..., :30],      # First 30 dims of body
+                    motion_hand,                 # Left hand (45 dims)
+                    motion_body[..., 30:43],    # Last 13 dims of body
+                    motion_rhand                 # Right hand (45 dims)
+                ], dim=-1)
+                # -- END ADJUSTMENT
+                
                 lengths.append(motion.shape[1])
             else:
                 raise NotImplementedError
@@ -155,13 +176,16 @@ class MotionGPT(BaseModel):
             feats_rst[i, :feats_rst_lst[i].shape[1], ...] = feats_rst_lst[i]
 
         # Recover joints for evaluation
-        joints_rst = self.feats2joints(feats_rst)
+        # -- ADJUSTED BY Claude Sonnet 4.5: feats2joints returns (vertices, joints) tuple
+        vertices_rst, joints_rst = self.feats2joints(feats_rst)
+        # -- END ADJUSTMENT
 
         # return set
         outputs = {
             "texts": output_texts,
             "feats": feats_rst,
             "joints": joints_rst,
+            "vertices": vertices_rst,
             "length": lengths
         }
 

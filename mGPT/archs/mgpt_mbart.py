@@ -26,6 +26,12 @@ def get_tokens_as_list(tokenizer, word_list):
 
 def correct_lang_token(tokenizer, input_ids: torch.Tensor, token_length: torch.Tensor, data_src: List[str], part: str, target: bool, model_type: str='mbart_multi'):
     #assign correct language tokens, e.g., en_XX, zh_CN, en_ASL, zh_CSL
+    # -- ADJUSTED BY Claude Sonnet 4.5: Handle None data_src for inference without language specification
+    if data_src is None:
+        # Default to English/ASL
+        data_src = ['how2sign'] * input_ids.shape[0]
+    # -- END ADJUSTMENT
+    
     B = input_ids.shape[0]
     x = torch.arange(B).to(input_ids.device)
     y = token_length - 1
@@ -34,14 +40,20 @@ def correct_lang_token(tokenizer, input_ids: torch.Tensor, token_length: torch.T
         if model_type == 'mbart_multi_part':
             src2id = {'how2sign': {'body': 'en_ASL', 'lhand': 'en_ASL_lhand', 'rhand': 'en_ASL_rhand'}, 
                     'csl': {'body': 'zh_CSL', 'lhand': 'zh_CSL_lhand', 'rhand': 'zh_CSL_rhand'},
-                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS_lhand', 'rhand': 'de_DGS_rhand'}}
+                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS_lhand', 'rhand': 'de_DGS_rhand'},
+                    'isharah': {'body': 'ar_ISL', 'lhand': 'ar_ISL_lhand', 'rhand': 'ar_ISL_rhand'}}
         else:
             src2id = {'how2sign': {'body': 'en_ASL', 'lhand': 'en_ASL', 'rhand': 'en_ASL'}, 
                     'csl': {'body': 'zh_CSL', 'lhand': 'zh_CSL', 'rhand': 'zh_CSL'},
-                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS', 'rhand': 'de_DGS'}}
+                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS', 'rhand': 'de_DGS'},
+                    'isharah': {'body': 'ar_ISL', 'lhand': 'ar_ISL', 'rhand': 'ar_ISL'}}
     else:
-        src2id = {'how2sign': 'en_XX', 'csl': 'zh_CN', 'phoenix': 'de_DE'}
+        src2id = {'how2sign': 'en_XX', 'csl': 'zh_CN', 'phoenix': 'de_DE', 'isharah': 'ar_AR'}
     for s in data_src:
+        # -- ADJUSTED BY Claude Sonnet 4.5: Handle individual None elements
+        if s is None:
+            s = 'how2sign'  # Default to English/ASL
+        # -- END ADJUSTMENT
         if target:
             token = src2id[s][part]
         else:
@@ -53,16 +65,28 @@ def correct_lang_token(tokenizer, input_ids: torch.Tensor, token_length: torch.T
 
 
 def make_decoder_input_ids(tokenizer, device, data_src, part, model_type='mbart_multi'):
+    # -- ADJUSTED BY Claude Sonnet 4.5: Handle None data_src for inference without language specification
+    if data_src is None:
+        # Default to English/ASL
+        data_src = ['how2sign']
+    # -- END ADJUSTMENT
+    
     decoder_input_ids = []
     if model_type == 'mbart_multi_part':
         src2id = {'how2sign': {'body': 'en_ASL', 'lhand': 'en_ASL_lhand', 'rhand': 'en_ASL_rhand'}, 
                       'csl': {'body': 'zh_CSL', 'lhand': 'zh_CSL_lhand', 'rhand': 'zh_CSL_rhand'},
-                      'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS_lhand', 'rhand': 'de_DGS_rhand'}}
+                      'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS_lhand', 'rhand': 'de_DGS_rhand'},
+                      'isharah': {'body': 'ar_ISL', 'lhand': 'ar_ISL_lhand', 'rhand': 'ar_ISL_rhand'}}
     else:
         src2id = {'how2sign': {'body': 'en_ASL', 'lhand': 'en_ASL', 'rhand': 'en_ASL'}, 
                     'csl': {'body': 'zh_CSL', 'lhand': 'zh_CSL', 'rhand': 'zh_CSL'},
-                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS', 'rhand': 'de_DGS'}}
+                    'phoenix': {'body': 'de_DGS', 'lhand': 'de_DGS', 'rhand': 'de_DGS'},
+                    'isharah': {'body': 'ar_ISL', 'lhand': 'ar_ISL', 'rhand': 'ar_ISL'}}
     for s in data_src:
+        # -- ADJUSTED BY Claude Sonnet 4.5: Handle individual None elements
+        if s is None:
+            s = 'how2sign'  # Default to English/ASL
+        # -- END ADJUSTMENT
         lang_id = tokenizer.convert_tokens_to_ids(src2id[s][part])
         decoder_input_ids.append(lang_id)
     decoder_input_ids = torch.tensor(decoder_input_ids, dtype=torch.long, device=device).unsqueeze(-1)
@@ -113,15 +137,15 @@ class Mbart_Based_MLM(nn.Module):
         # Add motion tokens
         self.tokenizer = MBartTokenizer.from_pretrained(model_path, legacy=True)
         if model_type == 'mbart_multi_part':
-            new_lang_token = ['en_ASL', 'en_ASL_lhand', 'en_ASL_rhand', 'zh_CSL', 'zh_CSL_lhand', 'zh_CSL_rhand', 'de_DGS', 'de_DGS_lhand', 'de_DGS_rhand']
+            new_lang_token = ['en_ASL', 'en_ASL_lhand', 'en_ASL_rhand', 'zh_CSL', 'zh_CSL_lhand', 'zh_CSL_rhand', 'de_DGS', 'de_DGS_lhand', 'de_DGS_rhand', 'ar_ISL', 'ar_ISL_lhand', 'ar_ISL_rhand']
         else:
-            new_lang_token = ['en_ASL', 'zh_CSL', 'de_DGS']
+            new_lang_token = ['en_ASL', 'zh_CSL', 'de_DGS', 'ar_ISL']
         self.tokenizer.add_tokens(new_lang_token, special_tokens=True)
         all_motion_str = [f'<motion_id_{i}>' for i in range(self.m_codebook_size + 3)]
         all_hand_str = [f'<hand_id_{i}>' for i in range(self.hand_codebook_size + 3)] if hand_codebook_size>0 else []
         all_rhand_str = [f'<rhand_id_{i}>' for i in range(self.rhand_codebook_size + 3)] if rhand_codebook_size>0 else []
         self.tokenizer.add_tokens(all_motion_str + all_hand_str + all_rhand_str)
-        self.lang_token_ids = list(map(self.tokenizer.convert_tokens_to_ids, ['en_XX', 'zh_CN', 'de_DE', '<mask>']+new_lang_token))
+        self.lang_token_ids = list(map(self.tokenizer.convert_tokens_to_ids, ['en_XX', 'zh_CN', 'de_DE', 'ar_AR', '<mask>']+new_lang_token))
 
         # set map ids
         with open(os.path.join(model_path, 'map_ids.pkl'), 'rb') as f:
@@ -132,6 +156,7 @@ class Mbart_Based_MLM(nn.Module):
             self.tok_id_to_emb_id[tok_id] = idx
             idx += 1
         self.emb_id_to_tok_id = {v:k for k,v in self.tok_id_to_emb_id.items()}
+        self.eos_idx = self.tok_id_to_emb_id[self.tokenizer.convert_tokens_to_ids('</s>')]
 
         # restrict output vocab
         tokenizer_with_prefix_space = MBartTokenizer.from_pretrained(model_path, add_prefix_space=True, legacy=True)
@@ -168,7 +193,8 @@ class Mbart_Based_MLM(nn.Module):
                                             len_token=len(self.tok_id_to_emb_id),
                                             ids_remove_motion=ids_remove_motion,
                                             ids_remove_hand=ids_remove_hand,
-                                            ids_remove_rhand=ids_remove_rhand
+                                            ids_remove_rhand=ids_remove_rhand,
+                                            eos_idx=self.eos_idx
                                         )
         self.lm_type = 'encdec'
         # elif model_type == "gpt2":
@@ -184,12 +210,33 @@ class Mbart_Based_MLM(nn.Module):
         self.max_len_per_part = 10
         self.name2kws = {}
         for split in ['train', 'val', 'test']:
-            # load pre-extracted keywords
-            with open(f'scripts/name2kws_{split}.json', 'r') as f:
-                data = json.load(f)
-                self.name2kws.update(data)
-        with open('scripts/word2code.json', 'r') as f:
-            self.word2code = json.load(f)
+            # load pre-extracted keywords from root directory
+            try:
+                with open(f'name2kws_{split}.json', 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.name2kws.update(data)
+                    print(f"Loaded {len(data)} entries from name2kws_{split}.json")
+            except FileNotFoundError:
+                # Fallback to scripts/ directory for backward compatibility
+                try:
+                    with open(f'scripts/name2kws_{split}.json', 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        self.name2kws.update(data)
+                        print(f"Loaded {len(data)} entries from scripts/name2kws_{split}.json")
+                except FileNotFoundError:
+                    print(f"Warning: name2kws_{split}.json not found in root or scripts/")
+        try:
+            with open('word2code.json', 'r', encoding='utf-8') as f:
+                self.word2code = json.load(f)
+                print(f"Loaded word2code.json with {len(self.word2code)} entries")
+        except FileNotFoundError:
+            try:
+                with open('scripts/word2code.json', 'r', encoding='utf-8') as f:
+                    self.word2code = json.load(f)
+                    print(f"Loaded scripts/word2code.json with {len(self.word2code)} entries")
+            except FileNotFoundError:
+                print("Warning: word2code.json not found, retrieval will not work")
+                self.word2code = {}
 
 
     def map_ids(self, input_ids: torch.Tensor, direction: str ='token_to_emb'):
@@ -211,17 +258,37 @@ class Mbart_Based_MLM(nn.Module):
 
     def get_kw_strings(self, name, src):
         output_strings = []
+        # -- ADJUSTED BY Claude Sonnet 4.5: Handle None values for inference without retrieval
+        if name is None or src is None:
+            return [""] * (len(name) if name is not None else len(src) if src is not None else 1)
+        # -- END ADJUSTMENT
+        
         for n, sr in zip(name, src):
             cur_string = ""
-            if n not in self.name2kws:
+            # -- ADJUSTED BY Claude Sonnet 4.5: Also check if individual n is None
+            if n is None or n not in self.name2kws:
                 output_strings.append(cur_string)
                 continue
+            # -- END ADJUSTMENT
 
             kws = self.name2kws[n][:self.num_kws_per_sen]
             for i in range(len(kws)):
                 kw = kws[i]
-                cur_string += f" [{kw}]: "
+                # cur_string += f" [{kw}]: "
+
+                if sr in ['how2sign', 'openasl']:
+                    cur_string += f" Key word {i+1}, "
+                elif sr == 'csl':
+                    cur_string += f" 关键词 {i+1}, "
+                elif sr == 'phoenix':
+                    cur_string += f" Schlüsselwort {i+1}, "
+                elif sr == 'isharah':
+                    cur_string += f" كلمة مفتاحية {i+1}, "
+                else:
+                    raise NotImplementedError
                 
+                if kw not in self.word2code:
+                    continue
                 mo_tokens = self.word2code[kw]['body']
                 hand_tokens = self.word2code[kw]['lhand']
                 rhand_tokens = self.word2code[kw]['rhand']
@@ -497,7 +564,7 @@ class Mbart_Based_MLM(nn.Module):
         if self.lm_type == 'encdec':
             outputs = self.language_model.generate(
                 source_input_ids,
-                max_length=max_length,
+                max_new_tokens=max_length,
                 num_beams=num_beams,
                 do_sample=do_sample,
                 bad_words_ids=bad_words_ids,
@@ -618,7 +685,7 @@ class Mbart_Based_MLM(nn.Module):
             # print(inputs)
 
             gen_results = self.generate_direct(inputs,
-                                                max_length=100,
+                                                max_length=200,  # Allow up to 200 tokens (~6-7 seconds)
                                                 num_beams=1,
                                                 do_sample=True,
                                                 src=src,

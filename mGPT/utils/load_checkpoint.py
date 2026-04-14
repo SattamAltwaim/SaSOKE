@@ -1,7 +1,6 @@
 import torch
 from mGPT.utils.misc import neq_load_customized
 
-
 def load_pretrained(cfg, model, logger=None, phase="train"):    
     if phase == "train":
         ckpt_path = cfg.TRAIN.PRETRAINED
@@ -11,14 +10,14 @@ def load_pretrained(cfg, model, logger=None, phase="train"):
     if logger is not None:
         logger.info(f"Loading pretrain model from {ckpt_path}")
         
-    state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=False)["state_dict"]
+    state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=False)["state_dict"] # added weights_only=False to fix loading issue from torch secure
     model.load_state_dict(state_dict, strict=False)
     return model
 
 
 def load_pretrained_vae(cfg, model, logger=None):
     state_dict = torch.load(cfg.TRAIN.PRETRAINED_VAE,
-                            map_location="cpu", weights_only=False)['state_dict']
+                            map_location="cpu", weights_only=False)['state_dict'] # added weights_only=False to fix loading issue from torch secure
     if logger is not None:
         logger.info(f"Loading pretrain vae from {cfg.TRAIN.PRETRAINED_VAE}")
         
