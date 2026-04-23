@@ -34,6 +34,7 @@ image = (
     .add_local_file("name2kws_val.json", remote_path="/app/name2kws_val.json")
     .add_local_file("name2kws_test.json", remote_path="/app/name2kws_test.json")
     .add_local_file("word2code.json", remote_path="/app/word2code.json")
+    .add_local_file("configs/tasks.json", remote_path="/app/configs/tasks.json")
 )
 
 app = modal.App("sasoke", image=image)

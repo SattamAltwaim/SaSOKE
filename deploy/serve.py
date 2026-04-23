@@ -28,7 +28,7 @@ def _get_engine():
 
 
 @app.function(
-    gpu="A10G",
+    gpu="A100",
     volumes={VOL_MOUNT: volume},
     timeout=300,
     scaledown_window=180,

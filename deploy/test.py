@@ -7,7 +7,7 @@ Usage: modal run deploy/test.py
 from deploy.image import app, volume, VOL_MOUNT
 
 
-@app.function(gpu="A10G", volumes={VOL_MOUNT: volume}, timeout=300)
+@app.function(gpu="A100", volumes={VOL_MOUNT: volume}, timeout=300)
 def test_inference():
     from deploy.inference import SOKEInference
 

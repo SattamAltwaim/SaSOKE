@@ -5,6 +5,7 @@ Loads VQ-VAEs + mBART + SMPL-X directly. No Lightning, no metrics, no losses.
 """
 
 import io
+import json
 import os
 import pickle
 import torch
@@ -151,8 +152,24 @@ class SOKEInference:
         Stage 1: Text -> SMPL-X parameter tensor. Fast (~2-4s).
         Returns (full_params, T) where full_params is (T, 169).
         """
-        out = self.lm.generate_direct(
-            [text], do_sample=True, src=[lang_token], name=[None], max_length=100,
+        instructions_path = "/app/configs/tasks.json"
+        try:
+            with open(instructions_path, 'r') as f:
+                instructions = json.load(f)
+            tasks = [instructions["Text-to-Motion"]["t2m"]] * 1
+        except Exception:
+            tasks = [{
+                'input': ['<Text-to-Motion>'],
+                'output': ['']
+            }] * 1
+
+        out = self.lm.generate_conditional(
+            [text],
+            lengths=[100],
+            stage='test',
+            tasks=tasks,
+            src=[lang_token],
+            name=[None],
         )
         body_tok = torch.clamp(out["outputs_tokens"][0], 0, self.body_vae.code_num - 1)
         lh_tok = out.get("outputs_tokens_hand", [None])[0]
