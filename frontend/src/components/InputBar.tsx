@@ -8,13 +8,6 @@ import {
 } from "react";
 import type { StreamStatus } from "../hooks/useSignStream";
 
-const LANGUAGES = [
-  { value: "isharah", label: "AR" },
-  { value: "how2sign", label: "EN" },
-  { value: "csl", label: "ZH" },
-  { value: "phoenix", label: "DE" },
-] as const;
-
 interface Props {
   onSend: (text: string, langToken: string) => void;
   onTogglePause: () => void;
@@ -29,7 +22,6 @@ export default function InputBar({
   paused,
 }: Props) {
   const [text, setText] = useState("");
-  const [lang, setLang] = useState("isharah");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isPlaying = status === "playing" || status === "streaming";
@@ -52,9 +44,9 @@ export default function InputBar({
       }
       const trimmed = text.trim();
       if (!trimmed || isLoading) return;
-      onSend(trimmed, lang);
+      onSend(trimmed, "isharah");
     },
-    [text, lang, isLoading, isPlaying, status, onSend, onTogglePause],
+    [text, isLoading, isPlaying, status, onSend, onTogglePause],
   );
 
   const handleKeyDown = useCallback(
@@ -66,8 +58,6 @@ export default function InputBar({
     },
     [handleSubmit],
   );
-
-  const isArabic = lang === "isharah";
 
   const showPause = isPlaying && !paused;
   const showPlay = status === "paused" || paused;
@@ -105,11 +95,7 @@ export default function InputBar({
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                isArabic
-                  ? "اكتب جملة لترجمتها..."
-                  : "Type a sentence to translate..."
-              }
+              placeholder="اكتب جملة لترجمتها..."
               rows={1}
               dir="auto"
               style={{
@@ -134,59 +120,10 @@ export default function InputBar({
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              justifyContent: "flex-end",
               padding: "4px 16px 16px 20px",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "2px",
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: "12px",
-                padding: "3px",
-              }}
-            >
-              {LANGUAGES.map((l) => {
-                const active = lang === l.value;
-                return (
-                  <button
-                    key={l.value}
-                    type="button"
-                    onClick={() => setLang(l.value)}
-                    style={{
-                      padding: "6px 14px",
-                      borderRadius: "10px",
-                      fontSize: "13px",
-                      fontWeight: 500,
-                      letterSpacing: "0.02em",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      border: "none",
-                      background: active
-                        ? "rgba(255,255,255,0.12)"
-                        : "transparent",
-                      color: active
-                        ? "rgba(255,255,255,0.95)"
-                        : "rgba(255,255,255,0.3)",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active)
-                        e.currentTarget.style.color = "rgba(255,255,255,0.55)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        e.currentTarget.style.color = "rgba(255,255,255,0.3)";
-                    }}
-                  >
-                    {l.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Action button: send / pause / play / loading */}
             <button
               type="submit"
               disabled={!btnActive && !isLoading}
