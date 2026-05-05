@@ -201,7 +201,7 @@ export function useSignStream() {
   );
 
   const send = useCallback(
-    async (text: string, langToken: string) => {
+    async (text: string, langToken: string, mode: string) => {
       stopPlayback();
       framesRef.current = [];
       frameIndexRef.current = 0;
@@ -232,7 +232,7 @@ export function useSignStream() {
         const resp = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, lang_token: langToken }),
+          body: JSON.stringify({ text, lang_token: langToken, mode: mode }),
           signal: controller.signal,
         });
 

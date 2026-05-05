@@ -53,7 +53,21 @@ export default function SignModel({ frames, currentFrame }: Props) {
     const buf = frames.current;
     const cur = buf[frame];
     if (!cur) return;
-
+    if (frame === 0) console.log("frame0 xyz:", cur[0], cur[1], cur[2], "min:", Math.min(...cur.slice(0,300)), "max:", Math.max(...cur.slice(0,300)));
+    if (frame === 0 && lastAppliedRef.current === -1) {
+      let min = Infinity, max = -Infinity;
+      for (let i = 0; i < cur.length; i++) {
+        if (cur[i] < min) min = cur[i];
+        if (cur[i] > max) max = cur[i];
+      }
+      console.log("frame0 FULL range:", min, "to", max);
+      console.log("frame0 first 9 floats (3 verts):", 
+        cur[0], cur[1], cur[2],   // vertex 0
+        cur[3], cur[4], cur[5],   // vertex 1  
+        cur[6], cur[7], cur[8]    // vertex 2
+      );
+      console.log("frame0 length:", cur.length, "(expect 31425)");
+    }
     const posAttr = geoRef.current.getAttribute("position") as THREE.BufferAttribute;
     const arr = posAttr.array as Float32Array;
     if (arr.length !== FLOATS) return;
@@ -87,7 +101,7 @@ export default function SignModel({ frames, currentFrame }: Props) {
   return (
     <mesh geometry={geometry}>
       <meshPhysicalMaterial
-        color="#c8a08a"
+        color="#90d2ec"
         roughness={0.55}
         metalness={0.02}
         clearcoat={0.05}
