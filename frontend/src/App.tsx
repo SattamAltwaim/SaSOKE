@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Scene from "./components/Scene";
 import InputBar from "./components/InputBar";
 import { useSignStream } from "./hooks/useSignStream";
@@ -11,6 +11,8 @@ export default function App() {
     frames,
     currentFrame,
     status,
+    error,
+    clearError,
     totalFrames,
     fps,
     paused,
@@ -18,6 +20,19 @@ export default function App() {
     replay,
     changeFps,
   } = useSignStream();
+
+  const [errorVisible, setErrorVisible] = useState(false);
+
+  useEffect(() => {
+    if (error) {
+      setErrorVisible(true);
+    }
+  }, [error]);
+
+  const dismissError = () => {
+    setErrorVisible(false);
+    setTimeout(clearError, 300);
+  };
 
   const [showFpsMenu, setShowFpsMenu] = useState(false);
 
@@ -230,6 +245,128 @@ export default function App() {
             }}
           >
             {status === "loading" ? "Generating..." : "Receiving frames..."}
+          </div>
+        </div>
+      )}
+
+      {/* Error toast */}
+      {error && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "140px",
+            left: "50%",
+            transform: `translateX(-50%) translateY(${errorVisible ? "0" : "20px"})`,
+            zIndex: 30,
+            width: "100%",
+            maxWidth: "480px",
+            padding: "0 20px",
+            boxSizing: "border-box",
+            opacity: errorVisible ? 1 : 0,
+            transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            pointerEvents: errorVisible ? "auto" : "none",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(40, 20, 20, 0.85)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              border: "1px solid rgba(255, 80, 80, 0.2)",
+              borderRadius: "16px",
+              padding: "16px 20px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                background: "rgba(255, 80, 80, 0.12)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "rgba(255, 120, 100, 0.9)",
+                  fontFamily: "monospace",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {error.code}
+              </span>
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "rgba(255, 200, 190, 0.95)",
+                  marginBottom: "4px",
+                }}
+              >
+                {error.title}
+              </div>
+              <div
+                style={{
+                  fontSize: "13px",
+                  lineHeight: "1.5",
+                  color: "rgba(255, 180, 170, 0.6)",
+                }}
+              >
+                {error.message}
+              </div>
+            </div>
+
+            <button
+              onClick={dismissError}
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "8px",
+                border: "none",
+                background: "transparent",
+                color: "rgba(255, 180, 170, 0.4)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                transition: "all 0.15s ease",
+                padding: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                e.currentTarget.style.color = "rgba(255, 180, 170, 0.8)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "rgba(255, 180, 170, 0.4)";
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <path d="M18 6L6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
