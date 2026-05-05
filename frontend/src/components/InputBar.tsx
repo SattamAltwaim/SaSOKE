@@ -16,7 +16,7 @@ const LANGUAGES = [
 ] as const;
 
 interface Props {
-  onSend: (text: string, langToken: string, mode: string) => void;
+  onSend: (text: string, langToken: string) => void;
   onTogglePause: () => void;
   status: StreamStatus;
   paused: boolean;

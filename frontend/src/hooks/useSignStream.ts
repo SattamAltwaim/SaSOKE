@@ -201,7 +201,7 @@ export function useSignStream() {
   );
 
   const send = useCallback(
-    async (text: string, langToken: string, mode: string) => {
+    async (text: string, langToken: string, mode = "deto") => {
       stopPlayback();
       framesRef.current = [];
       frameIndexRef.current = 0;
